@@ -8,7 +8,6 @@
 
 struct BitMap *mainBitmap1 = NULL;
 struct BitMap *mainBitmap2 = NULL;
-struct BitMap *rectBitmap = NULL;
 
 struct BitMap *tempBitmap = NULL;
 UWORD backupBytesPerRow;
@@ -68,14 +67,14 @@ int main(void) {
     currentScreen = mainScreen1;
     currentBitmap = mainBitmap1;
 
-    chunkyBuffer = AllocVec(320 * 256 * sizeof(UBYTE), MEMF_CHIP | MEMF_CLEAR);
+    chunkyBuffer = AllocVec(320 * 256 * sizeof(UBYTE), MEMF_FAST | MEMF_CLEAR);
 
     for (i = 0; i < 320 * 256; i++) 
     {
 	    chunkyBuffer[i] = *((UBYTE*)noitapic + i);
     }
 
-    currentPal = AllocVec(32 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
+    currentPal = AllocVec(32 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
 
     for(i = 0; i < 32; i++) 
     {
@@ -86,15 +85,6 @@ int main(void) {
     LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
     LoadRGB4(&(mainScreen2->ViewPort), currentPal, 32);
 
-    // create bitmap with rectangle which we will use for c2p
-    // 5 bitplanes for 32 colors
-    rectBitmap = AllocBitMap(320, 256,
-                             5, BMF_CLEAR, NULL);
-    if (!rectBitmap) {
-        printf("Error: Could not allocate memory for c2p bitmap\n");
-        goto _exit_free_bitmap;
-    }
-
     /* main() just does boring boiler plate stuff,
      * real rotation work is done in execute()
      */
@@ -103,8 +93,6 @@ int main(void) {
     FreeVec(chunkyBuffer);
     FreeVec(currentPal);
 
-    FreeBitMap(rectBitmap);
-_exit_free_bitmap:
     CloseScreen(mainScreen2);
     WaitTOF();
     FreeBitMap(mainBitmap2);
@@ -138,28 +126,25 @@ void execute() {
     int x,y;
     ScreenToFront(currentScreen);
     WaitTOF();
-
     // chunky buffer objects are converted to planar
     while (!mouseCiaStatus()) {
-        for(y=(frame+1)%2;y<256;y+=2) 
-	{
-		for(x=frame%2;x<320;x+=2) 
-		{
-			chunkyBuffer[y*320+x]++;
-			if (chunkyBuffer[y*320+x] > 31) {
-				chunkyBuffer[y*320+x] = 0;
-			}
-		}
-	}
+        int o = (frame%2)*320;
+        for(y=frame%2;y<256;y+=2) 
+    	{
+    		for(x=0;x<320;x+=1) 
+    		{
+    			if (*((UBYTE*)noitapic + o) == 0) {
+                    chunkyBuffer[o] = ((x>>2)&(y>>2))+frame;
+    			}
+                o+=1;
+    		}
+            o+=320;
+    	}
 
         switchScreenData();
-        convertChunkyToBitmap(chunkyBuffer, rectBitmap);
-        BltBitMap(rectBitmap, 0, 0, currentBitmap,
-                  0, 0,
-                  320, 256, 0x00C0,
-                  0xff, NULL);
+        convertChunkyToBitmap(chunkyBuffer, currentBitmap);
         ScreenToFront(currentScreen);
-	frame++;
+    	frame++;
     }
 }
 
