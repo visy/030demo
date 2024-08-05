@@ -3,7 +3,6 @@
 struct Screen* createScreen(struct BitMap* b, BOOL hidden, 
         WORD x, WORD y, UWORD width, UWORD height, UWORD depth, 
         struct Rectangle* clip){
-    UBYTE endOfLineClub = 8;
     struct TagItem screentags[11] = {
         {SA_BitMap, NULL},
         {SA_Left, 0}, 
@@ -23,23 +22,7 @@ struct Screen* createScreen(struct BitMap* b, BOOL hidden,
     screentags[2].ti_Data = y;
     screentags[3].ti_Data = width;
     screentags[4].ti_Data = height;
-    screentags[5].ti_Data = depth;
-
-    if(hidden){
-        screentags[endOfLineClub].ti_Tag = SA_Behind;
-        screentags[endOfLineClub].ti_Data = TRUE;
-        endOfLineClub++;
-        screentags[endOfLineClub].ti_Tag = TAG_DONE;
-        screentags[endOfLineClub].ti_Data = NULL;
-    }
-
-    if(clip){
-        screentags[endOfLineClub].ti_Tag = SA_DClip;
-        screentags[endOfLineClub].ti_Data = (ULONG) clip;
-        endOfLineClub++;
-        screentags[endOfLineClub].ti_Tag = TAG_DONE;
-        screentags[endOfLineClub].ti_Data = NULL;
-    }
+    screentags[5].ti_Data = 8;
 
     return OpenScreenTagList(NULL, screentags);
 }

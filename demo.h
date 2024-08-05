@@ -48,6 +48,7 @@
 #define FIXMULT(x,y) (((x)>>HALFSHIFT)*((y)>>HALFSHIFT))
 #define FIXDIV(x,y) (((x)/(y>>HALFSHIFT))<<HALFSHIFT)
 
+
 BOOL initScreen(struct BitMap **bm, struct Screen **s);
 void execute(void);
 void convertChunkyToBitmap(UBYTE* sourceChunky, struct BitMap *destPlanar);
