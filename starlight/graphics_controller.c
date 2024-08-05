@@ -10,7 +10,7 @@ struct Screen* createScreen(struct BitMap* b, BOOL hidden,
         {SA_Width, 0}, 
         {SA_Height, 0}, 
         {SA_Depth, 0}, 
-        {SA_Type, CUSTOMSCREEN}, 
+        {SA_Type, CUSTOMSCREEN|CUSTOMBITMAP}, 
         {SA_Quiet, TRUE},
         {TAG_DONE, NULL},
         {NULL, NULL},
@@ -22,7 +22,7 @@ struct Screen* createScreen(struct BitMap* b, BOOL hidden,
     screentags[2].ti_Data = y;
     screentags[3].ti_Data = width;
     screentags[4].ti_Data = height;
-    screentags[5].ti_Data = 8;
+    screentags[5].ti_Data = depth;
 
     return OpenScreenTagList(NULL, screentags);
 }

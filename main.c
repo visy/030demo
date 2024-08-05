@@ -7,8 +7,7 @@
 #include "noitapic.h"
 
 // kalms c2p for 320x256
-extern void c2p1x1_6_c5_bm(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
-
+extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
 
 struct BitMap *mainBitmap1 = NULL;
 
@@ -53,19 +52,11 @@ int main(void) {
     currentScreen = mainScreen1;
     currentBitmap = mainBitmap1;
 
-    chunkyBuffer = AllocVec(320 * 256 * sizeof(UBYTE), MEMF_FAST | MEMF_CLEAR);
-
-    for (i = 0; i < 320 * 256; i++) 
-    {
-	    chunkyBuffer[i] = *((UBYTE*)noitapic + i);
-    }
+    chunkyBuffer = AllocVec(320 * 256 * sizeof(UBYTE), MEMF_CLEAR);
+    CopyMemQuick(noitapic, chunkyBuffer, 320*256);
 
     currentPal = AllocVec(32 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
-
-    for(i = 0; i < 32; i++) 
-    {
-	    currentPal[i] = noitapal[i];
-    }
+    CopyMemQuick(noitapal, currentPal, 32);
 
     // set 32 color palette on both double buffered screens
     LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
@@ -107,20 +98,22 @@ void execute() {
     // chunky buffer objects are converted to planar
     while (!mouseCiaStatus()) {
         int o = (frame%2)*320;
+        CopyMemQuick(noitapic, ((UBYTE*)chunkyBuffer + ((finesine[(frame<<7)%(4096<<1)])>>11)), 320*256);
+
         for(y=frame%2;y<256;y+=2) 
     	{
     		for(x=0;x<320;x+=1) 
     		{
-    			if (*((UBYTE*)noitapic + o) == 0) {
-                    chunkyBuffer[o] = (((x>>1)|(y>>1))+frame);
+    			if (*((UBYTE*)chunkyBuffer + o) == 0) {
+                    chunkyBuffer[o] = (((x>>3)|(y>>3))+frame);
     			}
                 o+=1;
     		}
             o+=320;
     	}
 
-        convertChunkyToBitmap(chunkyBuffer, currentBitmap);
-
+        //convertChunkyToBitmap(chunkyBuffer, currentBitmap);
+        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
     	frame++;
     }
 }
@@ -141,7 +134,7 @@ BOOL initScreen(struct BitMap **b, struct Screen **s)
 {
     // load onscreen bitmap which will be shown on screen
     *b = AllocBitMap(320, 256,
-                     5, BMF_CLEAR,
+                     4, BMF_CLEAR,
                      NULL);
     if (!*b) {
         printf("Error: Could not allocate memory for screen bitmap\n");
@@ -151,7 +144,7 @@ BOOL initScreen(struct BitMap **b, struct Screen **s)
     // create one screen which contains the demo logo
     *s = createScreen(*b, TRUE, 0, 0,
                       320, 256,
-                      5, NULL);
+                      4, NULL);
     if (!*s) {
         printf("Error: Could not allocate memory for logo screen\n");
         goto __exit_init_bitmap;
