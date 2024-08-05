@@ -32,6 +32,8 @@ UWORD *currentPal;
 // chunky buffer for pixels
 UBYTE *chunkyBuffer;
 
+int frame = 0;
+
 /*
  * Create two Screens and two BitMap as Screen content
  * for double buffering. Create a third BitMap, draw a
@@ -70,7 +72,7 @@ int main(void) {
 
     for (i = 0; i < 320 * 256; i++) 
     {
-	    chunkyBuffer[i] = (UBYTE*)noitapic[i];
+	    chunkyBuffer[i] = *((UBYTE*)noitapic + i);
     }
 
     currentPal = AllocVec(32 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
@@ -90,7 +92,7 @@ int main(void) {
                              5, BMF_CLEAR, NULL);
     if (!rectBitmap) {
         printf("Error: Could not allocate memory for c2p bitmap\n");
-        goto _exit_free_colortable;
+        goto _exit_free_bitmap;
     }
 
     /* main() just does boring boiler plate stuff,
@@ -98,12 +100,11 @@ int main(void) {
      */
     execute();
 
-    FreeVec(currentPal);
     FreeVec(chunkyBuffer);
+    FreeVec(currentPal);
 
     FreeBitMap(rectBitmap);
-_exit_free_colortable:
-    FreeVec(currentPal);
+_exit_free_bitmap:
     CloseScreen(mainScreen2);
     WaitTOF();
     FreeBitMap(mainBitmap2);
@@ -134,11 +135,23 @@ _exit_main:
 
 
 void execute() {
+    int x,y;
     ScreenToFront(currentScreen);
     WaitTOF();
 
     // chunky buffer objects are converted to planar
     while (!mouseCiaStatus()) {
+        for(y=(frame+1)%2;y<256;y+=2) 
+	{
+		for(x=frame%2;x<320;x+=2) 
+		{
+			chunkyBuffer[y*320+x]++;
+			if (chunkyBuffer[y*320+x] > 31) {
+				chunkyBuffer[y*320+x] = 0;
+			}
+		}
+	}
+
         switchScreenData();
         convertChunkyToBitmap(chunkyBuffer, rectBitmap);
         BltBitMap(rectBitmap, 0, 0, currentBitmap,
@@ -146,6 +159,7 @@ void execute() {
                   320, 256, 0x00C0,
                   0xff, NULL);
         ScreenToFront(currentScreen);
+	frame++;
     }
 }
 
