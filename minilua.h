@@ -572,6 +572,7 @@ extern "C" {
 
 #define l_mathop(op)		op
 
+#define lua_str2number(s,p)	strtod((s), (p))
 
 #else						/* }{ */
 
@@ -697,6 +698,7 @@ extern "C" {
 ** implementation.
 */
 #if !defined(LUA_USE_C89)
+#define lua_strx2number(s,p)		lua_str2number(s,p)
 #endif
 
 
@@ -729,6 +731,7 @@ extern "C" {
 #undef l_mathop  /* variants not available */
 #undef lua_str2number
 #define l_mathop(op)		(lua_Number)op  /* no variant */
+#define lua_str2number(s,p)	((lua_Number)strtod((s), (p)))
 #endif
 
 
@@ -9082,7 +9085,76 @@ int luaX_lookahead (LexState *ls) {
 
 #define hasjumps(e)	((e)->t != (e)->f)
 
+double
+frexp(value, eptr)
+	double value;
+	int *eptr;
+{
+	union {
+                double v;
+                struct {
+			unsigned u_mant2 : 32;
+			unsigned u_mant1 : 20;
+			unsigned   u_exp : 11;
+                        unsigned  u_sign :  1;
+                } s;
+        } u;
 
+	if (value) {
+		u.v = value;
+		*eptr = u.s.u_exp - 1022;
+		u.s.u_exp = 1022;
+		return(u.v);
+	} else {
+		*eptr = 0;
+		return((double)0);
+	}
+}
+
+double atan2(double y, double x) {
+	
+	if (y == 0.0) {
+		if (x >= 0.0) {
+			return 0.0;
+		}
+		else {
+			return M_PI;
+		}
+	}
+	else if (y > 0.0) {
+		if (x == 0.0) {
+			return M_PI_2;
+		}
+		else if (x > 0.0) {
+			return atan(y / x);
+		}
+		else {
+			return M_PI - atan(y / x);
+		}
+	}
+	else {
+		if (x == 0.0) {
+			return M_PI + M_PI_2;
+		}
+		else if (x > 0.0) {
+			return 2 * M_PI - atan(y / x);
+		}
+		else {
+			return M_PI + atan(y / x);
+		}
+	}
+}
+
+
+double myldexp(double a, double b) {
+	return pow(a * 2.0,b);
+}
+
+double trunc(double d){ return (d>0) ? floor(d) : ceil(d) ; }
+
+double fmod(double x, double y) {
+	  return x - trunc(x / y) * y;
+}
 static int codesJ (FuncState *fs, OpCode o, int sj, int k);
 
 
@@ -9645,7 +9717,22 @@ static int luaK_intK (FuncState *fs, lua_Integer n) {
 ** a duplicate.)
 */
 static int luaK_numberK (FuncState *fs, lua_Number r) {
-	return 0;
+  TValue o;
+  lua_Integer ik;
+  setfltvalue(&o, r);
+  if (!luaV_flttointeger(r, &ik, F2Ieq))  /* not an integral value? */
+    return addk(fs, &o, &o);  /* use number itself as key */
+  else {  /* must build an alternative key */
+    const int nbm = l_floatatt(MANT_DIG);
+    const lua_Number q = l_mathop(myldexp)(l_mathop(1.0), -nbm + 1);
+    const lua_Number k = (ik == 0) ? q : r + r*q;  /* new key */
+    TValue kv;
+    setfltvalue(&kv, k);
+    /* result is not an integral value, unless value is too large */
+    lua_assert(!luaV_flttointeger(k, &ik, F2Ieq) ||
+                l_mathop(fabs)(r) >= l_mathop(1e6));
+    return addk(fs, &kv, &o);
+  }
 }
 
 
@@ -14291,7 +14378,52 @@ static int isneg (const char **s) {
 ** C99 specification for 'strtod'
 */
 static lua_Number lua_strx2number (const char *s, char **endptr) {
-	return 0;
+  int dot = lua_getlocaledecpoint();
+  lua_Number r = l_mathop(0.0);  /* result (accumulator) */
+  int sigdig = 0;  /* number of significant digits */
+  int nosigdig = 0;  /* number of non-significant digits */
+  int e = 0;  /* exponent correction */
+  int neg;  /* 1 if number is negative */
+  int hasdot = 0;  /* true after seen a dot */
+  *endptr = cast_charp(s);  /* nothing is valid yet */
+  while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
+  neg = isneg(&s);  /* check sign */
+  if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
+    return l_mathop(0.0);  /* invalid format (no '0x') */
+  for (s += 2; ; s++) {  /* skip '0x' and read numeral */
+    if (*s == dot) {
+      if (hasdot) break;  /* second dot? stop loop */
+      else hasdot = 1;
+    }
+    else if (lisxdigit(cast_uchar(*s))) {
+      if (sigdig == 0 && *s == '0')  /* non-significant digit (zero)? */
+        nosigdig++;
+      else if (++sigdig <= MAXSIGDIG)  /* can read it without overflow? */
+          r = (r * l_mathop(16.0)) + luaO_hexavalue(*s);
+      else e++; /* too many digits; ignore, but still count for exponent */
+      if (hasdot) e--;  /* decimal digit? correct exponent */
+    }
+    else break;  /* neither a dot nor a digit */
+  }
+  if (nosigdig + sigdig == 0)  /* no digits? */
+    return l_mathop(0.0);  /* invalid format */
+  *endptr = cast_charp(s);  /* valid up to here */
+  e *= 4;  /* each digit multiplies/divides value by 2^4 */
+  if (*s == 'p' || *s == 'P') {  /* exponent part? */
+    int exp1 = 0;  /* exponent value */
+    int neg1;  /* exponent sign */
+    s++;  /* skip 'p' */
+    neg1 = isneg(&s);  /* sign */
+    if (!lisdigit(cast_uchar(*s)))
+      return l_mathop(0.0);  /* invalid; must have at least one digit */
+    while (lisdigit(cast_uchar(*s)))  /* read exponent */
+      exp1 = exp1 * 10 + *(s++) - '0';
+    if (neg1) exp1 = -exp1;
+    e += exp1;
+    *endptr = cast_charp(s);  /* valid up to here */
+  }
+  if (neg) r = -r;
+  return l_mathop(myldexp)(r, e);
 }
 
 #endif
@@ -14309,7 +14441,12 @@ static lua_Number lua_strx2number (const char *s, char **endptr) {
 ** means a hexadecimal numeral.
 */
 static const char *l_str2dloc (const char *s, lua_Number *result, int mode) {
-	return NULL;
+  char *endptr;
+  *result = (mode == 'x') ? lua_strx2number(s, &endptr)  /* try to convert */
+                          : lua_str2number(s, &endptr);
+  if (endptr == s) return NULL;  /* nothing recognized? */
+  while (lisspace(cast_uchar(*endptr))) endptr++;  /* skip trailing spaces */
+  return (*endptr == '\0') ? endptr : NULL;  /* OK iff no trailing chars */
 }
 
 
@@ -15339,19 +15476,35 @@ static Nodey *hashint (const Table *t, lua_Integer i) {
 }
 
 
+/*
+** Hash for floating-point numbers.
+** The main computation should be just
+**     n = frexp(n, &i); return (n * INT_MAX) + i
+** but there are some numerical subtleties.
+** In a two-complement representation, INT_MAX does not has an exact
+** representation as a float, but INT_MIN does; because the absolute
+** value of 'frexp' is smaller than 1 (unless 'n' is inf/NaN), the
+** absolute value of the product 'frexp * -INT_MIN' is smaller or equal
+** to INT_MAX. Next, the use of 'unsigned int' avoids overflows when
+** adding 'i'; the use of '~u' (instead of '-u') avoids problems with
+** INT_MIN.
+*/
 #if !defined(l_hashfloat)
 static int l_hashfloat (lua_Number n) {
-	return 0;
+  int i;
+  lua_Integer ni;
+  n = l_mathop(frexp)(n, &i) * -cast_num(INT_MIN);
+  if (!lua_numbertointeger(n, &ni)) {  /* is 'n' inf/-inf/NaN? */
+    lua_assert(luai_numisnan(n) || l_mathop(fabs)(n) == cast_num(HUGE_VAL));
+    return 0;
+  }
+  else {  /* normal case */
+    unsigned int u = cast_uint(i) + cast_uint(ni);
+    return cast_int(u <= cast_uint(INT_MAX) ? u : ~u);
+  }
 }
 #endif
 
-
-
-double trunc(double d){ return (d>0) ? floor(d) : ceil(d) ; }
-
-double fmod(double x, double y) {
-	  return x - trunc(x / y) * y;
-}
 
 /*
 ** returns the 'main' position of an element in a table (that is,
@@ -23978,7 +24131,10 @@ static int math_acos (lua_State *L) {
 }
 
 static int math_atan (lua_State *L) {
-  return 0;
+  lua_Number y = luaL_checknumber(L, 1);
+  lua_Number x = luaL_optnumber(L, 2, 1);
+  lua_pushnumber(L, l_mathop(atan2)(y, x));
+  return 1;
 }
 
 
@@ -24607,6 +24763,20 @@ static int math_pow (lua_State *L) {
   return 1;
 }
 
+static int math_frexp (lua_State *L) {
+  int e;
+  lua_pushnumber(L, l_mathop(frexp)(luaL_checknumber(L, 1), &e));
+  lua_pushinteger(L, e);
+  return 2;
+}
+
+static int math_ldexp (lua_State *L) {
+  lua_Number x = luaL_checknumber(L, 1);
+  int ep = (int)luaL_checkinteger(L, 2);
+  lua_pushnumber(L, l_mathop(myldexp)(x, ep));
+  return 1;
+}
+
 static int math_log10 (lua_State *L) {
   lua_pushnumber(L, l_mathop(log10)(luaL_checknumber(L, 1)));
   return 1;
@@ -24640,10 +24810,13 @@ static const luaL_Reg mathlib[] = {
   {"tan",   math_tan},
   {"type", math_type},
 #if defined(LUA_COMPAT_MATHLIB)
+  {"atan2", math_atan},
   {"cosh",   math_cosh},
   {"sinh",   math_sinh},
   {"tanh",   math_tanh},
   {"pow",   math_pow},
+  {"frexp", math_frexp},
+  {"myldexp", ldexp},
   {"log10", math_log10},
 #endif
   /* placeholders */
@@ -26886,7 +27059,34 @@ static lua_Number adddigit (char *buff, int n, lua_Number x) {
 
 
 static int num2straux (char *buff, int sz, lua_Number x) {
-	return 0;
+  /* if 'inf' or 'NaN', format it like '%g' */
+  if (x != x || x == (lua_Number)HUGE_VAL || x == -(lua_Number)HUGE_VAL)
+    return l_sprintf(buff, sz, LUA_NUMBER_FMT, (LUAI_UACNUMBER)x);
+  else if (x == 0) {  /* can be -0... */
+    /* create "0" or "-0" followed by exponent */
+    return l_sprintf(buff, sz, LUA_NUMBER_FMT "x0p+0", (LUAI_UACNUMBER)x);
+  }
+  else {
+    int e;
+    lua_Number m = l_mathop(frexp)(x, &e);  /* 'x' fraction and exponent */
+    int n = 0;  /* character count */
+    if (m < 0) {  /* is number negative? */
+      buff[n++] = '-';  /* add sign */
+      m = -m;  /* make it positive */
+    }
+    buff[n++] = '0'; buff[n++] = 'x';  /* add "0x" */
+    m = adddigit(buff, n++, m * (1 << L_NBFD));  /* add first digit */
+    e -= L_NBFD;  /* this digit goes before the radix point */
+    if (m > 0) {  /* more digits? */
+      buff[n++] = lua_getlocaledecpoint();  /* add radix point */
+      do {  /* add as many digits as needed */
+        m = adddigit(buff, n++, m * 16);
+      } while (m > 0);
+    }
+    n += l_sprintf(buff + n, sz - n, "p%+d", e);  /* add exponent */
+    lua_assert(n < sz);
+    return n;
+  }
 }
 
 

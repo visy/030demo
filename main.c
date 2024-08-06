@@ -49,7 +49,8 @@ int main(void) {
   if(L == NULL)
     return -1;
   luaL_openlibs(L);
-  luaL_loadstring(L, "print 'hello world from lua'");
+  luaL_loadstring(L, "local a = 5-4 print 'hello world from lua: int:' .. tostring(a)");
+  
   lua_call(L, 0, 0);
   lua_close(L);
 
