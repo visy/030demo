@@ -2,8 +2,8 @@ CC=m68k-amigaos-gcc
 VASM=vasmm68k_mot
 VASMFLAGS=-Faout -devpac 
 CFLAGS = -D__far="" -Wall -O3 -I. -m68000
-LDFLAGS = -noixemul 
-SOURCES=main.c starlight/graphics_controller.c starlight/utils.c
+LDFLAGS = -noixemul -L. 
+SOURCES=main.c dlfcn.c starlight/graphics_controller.c starlight/utils.c
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=demo.exe
 
@@ -19,7 +19,7 @@ p2c.o: chunkyconverter/p2c.s
 	$(VASM) $(VASMFLAGS) -o p2c.o chunkyconverter/p2c.s
 
 $(EXECUTABLE): $(OBJECTS) p2c.o c2p.o
-	$(CC) $(LDFLAGS) $(OBJECTS) p2c.o c2p.o c2p_kalms.o -o $@
+	$(CC) $(LDFLAGS) $(OBJECTS) p2c.o c2p.o c2p_kalms.o -o $@ -Lmfloat -lmdouble -lmtransdouble -lmtransfloat
 	
 clean: 
 	rm *.o *.lnk *.info *.uaem $(EXECUTABLE)

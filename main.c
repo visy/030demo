@@ -3,6 +3,11 @@
 
 #include "demo.h"
 
+
+#define LUA_IMPL
+#include "minilua.h"
+
+#define __builtin_expect(x,y)
 // gfx data headers
 #include "noitapic.h"
 
@@ -39,6 +44,15 @@ int finesine[];
  */
 int main(void) {
 	int i = 0;
+
+  lua_State *L = luaL_newstate();
+  if(L == NULL)
+    return -1;
+  luaL_openlibs(L);
+  luaL_loadstring(L, "print 'hello world from lua'");
+  lua_call(L, 0, 0);
+  lua_close(L);
+
     // hide mouse
     emptyPointer = AllocVec(22 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
     my_wbscreen_ptr = LockPubScreen("Workbench");
@@ -80,7 +94,8 @@ _exit_main:
     UnlockPubScreen(NULL, my_wbscreen_ptr);
     FreeVec(emptyPointer);
 
-    exit(RETURN_OK);
+    //exit(RETURN_OK);
+    
 }
 
 /*
