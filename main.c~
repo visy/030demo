@@ -49,8 +49,13 @@ int main(void) {
   if(L == NULL)
     return -1;
   luaL_openlibs(L);
-  luaL_loadstring(L, "local a = 5-4 print 'hello world from lua: int:'");
-  
+  luaL_loadstring(L, "print 'hello'");
+  lua_call(L, 0, 0);
+  luaL_loadstring(L, "print(5-4)");
+  lua_call(L, 0, 0);
+  luaL_loadstring(L, "print(tostring(5.1-4.1))");
+  lua_call(L, 0, 0);
+  luaL_loadstring(L, "print(tostring(5.0*4.0))");
   lua_call(L, 0, 0);
   lua_close(L);
 
