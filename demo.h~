@@ -27,13 +27,18 @@
 #include <hardware/cia.h>
 #include <hardware/dmabits.h>
 
+#include <time.h>
+
+#include <devices/timer.h>
+#include <proto/exec.h>
+
 #include "starlight/blob_controller.h"
 #include "starlight/graphics_controller.h"
 #include "starlight/utils.h"
 
 #include "chunkyconverter/chunkyconverter.h"
 
-#define NATIVE_CONVERTER
+//#define NATIVE_CONVERTER
 
 // credits to: https://coronax.wordpress.com/2014/01/31/running-with-the-numbers/
 #define FIXSHIFT 16        // shift 16 bits = scale factor 65536
@@ -47,6 +52,7 @@
 // multiply and divide
 #define FIXMULT(x,y) (((x)>>HALFSHIFT)*((y)>>HALFSHIFT))
 #define FIXDIV(x,y) (((x)/(y>>HALFSHIFT))<<HALFSHIFT)
+
 
 BOOL initScreen(struct BitMap **bm, struct Screen **s);
 void execute(void);

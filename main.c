@@ -37,6 +37,26 @@ UBYTE *chunkyBuffer;
 int frame = 0;
 
 int finesine[];
+
+#include <clib/timer_protos.h>
+#include <clib/exec_protos.h>
+
+struct Device* TimerBase;
+static struct IORequest timereq;
+
+static ULONG getMilliseconds()
+{
+  static struct timeval t;
+  struct timeval a, b;
+
+  GetSysTime(&a);
+  b = a;
+  SubTime(&b, &t);
+  t = a;
+
+  return b.tv_secs*1000 + b.tv_micro/1000;
+}
+
 /*
  * Create two Screens and two BitMap as Screen content
  * for double buffering. Create a third BitMap, draw a
@@ -45,6 +65,12 @@ int finesine[];
 int main(void) {
 	int i = 0;
 
+  OpenDevice("timer.device", 0, &timereq, 0);
+  TimerBase = timereq.io_Device;
+
+	getMilliseconds();
+
+/*
   lua_State *L = luaL_newstate();
   if(L == NULL)
     return -1;
@@ -58,7 +84,7 @@ int main(void) {
   luaL_loadstring(L, "print(5.0*4.0)");
   lua_call(L, 0, 0);
   lua_close(L);
-
+*/
     // hide mouse
     emptyPointer = AllocVec(22 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
     my_wbscreen_ptr = LockPubScreen("Workbench");
@@ -86,6 +112,8 @@ int main(void) {
      */
     execute();
 
+	CloseDevice(&timereq);
+
     FreeVec(chunkyBuffer);
     FreeVec(currentPal);
 
@@ -111,12 +139,16 @@ _exit_main:
  */
 
 
+ULONG millis;
+ULONG st;
 
 void execute() {
     int x,y;
     ScreenToFront(currentScreen);
     WaitTOF();
     // chunky buffer objects are converted to planar
+    
+	printf("alku\n");
     while (!mouseCiaStatus()) {
         int o = (frame%2)*320;
         CopyMemQuick(noitapic, ((UBYTE*)chunkyBuffer + ((finesine[(frame<<7)%(4096<<1)])>>11)), 320*256);
@@ -137,6 +169,7 @@ void execute() {
         c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
     	frame++;
     }
+	printf("loppu tuli:%lu\n", getMilliseconds());
 }
 
 void convertChunkyToBitmap(UBYTE* sourceChunky, struct BitMap *destPlanar)
