@@ -38,6 +38,94 @@ int frame = 0;
 
 int finesine[];
 
+int ymul[256] = 
+{
+    0
+};
+
+int drawcolor = 7;
+
+inline void pixel(int x,int y) {
+    // PLOT x,y point on surface
+    chunkyBuffer[ymul[y]+x+32] = (chunkyBuffer[ymul[y]+x+32]-1) & drawcolor;
+}
+
+
+// THE EXTREMELY FAST LINE ALGORITHM Variation E (Addition Fixed Point PreCalc Small Display)
+// Small Display (256x256) resolution.
+void line(int x, int y, int x2, int y2) {
+    bool yLonger=false;
+    int shortLen=y2-y;
+    int longLen=x2-x;
+    int j;
+    int decInc;
+
+    if (abs(shortLen)>abs(longLen)) {
+        int swap=shortLen;
+        shortLen=longLen;
+        longLen=swap;               
+        yLonger=true;
+    }
+    if (longLen==0) decInc=0;
+    else decInc = (shortLen << 8) / longLen;
+
+    if (yLonger) {
+        if (longLen>0) {
+            longLen+=y;
+            for (j=0x80+(x<<8);y<=longLen;++y) {
+                pixel(j >> 8,y);  
+                j+=decInc;
+            }
+            return;
+        }
+        longLen+=y;
+        for (j=0x80+(x<<8);y>=longLen;--y) {
+            pixel(j >> 8,y);  
+            j-=decInc;
+        }
+        return; 
+    }
+
+    if (longLen>0) {
+        longLen+=x;
+        for (j=0x80+(y<<8);x<=longLen;++x) {
+            pixel(x,j >> 8);
+            j+=decInc;
+        }
+        return;
+    }
+    longLen+=x;
+    for (j=0x80+(y<<8);x>=longLen;--x) {
+        pixel(x,j >> 8);
+        j-=decInc;
+    }
+
+}
+
+void square(int x, int y, int x2, int y2) {
+    line(x,y,x2,y2);
+    line(x2,y2,x2+(y-y2),y2+(x2-x));
+    line(x,y,x+(y-y2),y+(x2-x));
+    line(x+(y-y2),y+(x2-x),x2+(y-y2),y2+(x2-x));
+}
+
+
+void rect(int x, int y, int x2, int y2) {
+    line(x,y,x2,y);
+    line(x2,y,x2,y2);
+    line(x2,y2,x,y2);
+    line(x,y2,x,y);
+}
+
+void fillrect(int x, int y, int x2, int y2) {
+    int fy = 0;
+    rect(x,y,x2,y2);
+
+    for (fy=y;fy < y2; fy++) {
+        line(x,fy,x2,fy);
+    }
+}
+
 #include <clib/timer_protos.h>
 #include <clib/exec_protos.h>
 
@@ -67,8 +155,12 @@ int main(void) {
 
   OpenDevice("timer.device", 0, &timereq, 0);
   TimerBase = timereq.io_Device;
+  getMilliseconds();
 
-	getMilliseconds();
+  for(i=0; i < 256; i++) {
+    ymul[i] = i * 320;
+  }
+
 
 /*
   lua_State *L = luaL_newstate();
@@ -85,12 +177,14 @@ int main(void) {
   lua_call(L, 0, 0);
   lua_close(L);
 */
+
+    /*
     // hide mouse
     emptyPointer = AllocVec(22 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
     my_wbscreen_ptr = LockPubScreen("Workbench");
     SetPointer(my_wbscreen_ptr->FirstWindow, emptyPointer, 8, 8, -6, 0);
     UnlockPubScreen(NULL, my_wbscreen_ptr);
-    
+    */
     if (!initScreen(&mainBitmap1, &mainScreen1)) {
         goto _exit_free_temp_bitmap;
     }
@@ -112,38 +206,35 @@ int main(void) {
      */
     execute();
 
-	CloseDevice(&timereq);
 
     FreeVec(chunkyBuffer);
     FreeVec(currentPal);
 
     CloseScreen(mainScreen1);
     WaitTOF();
+    CloseDevice(&timereq);
+
     FreeBitMap(mainBitmap1);
 _exit_free_temp_bitmap:
 _exit_main:
     // restore mouse
+/*
     my_wbscreen_ptr = LockPubScreen("Workbench");
     ClearPointer(my_wbscreen_ptr->FirstWindow);
     UnlockPubScreen(NULL, my_wbscreen_ptr);
     FreeVec(emptyPointer);
-
-    //exit(RETURN_OK);
+*/
+    exit(RETURN_OK);
     
 }
-
-/*
- * Paint rectangle into BitMap, tranform to chunky buffer, rotate
- * by 10 degreee in a loop, transform back to planar and draw result on
- * Screen
- */
 
 
 ULONG millis;
 ULONG st;
 
 void execute() {
-    int x,y;
+    int x,y,i;
+    int off = 0;
     ScreenToFront(currentScreen);
     WaitTOF();
     // chunky buffer objects are converted to planar
@@ -151,37 +242,30 @@ void execute() {
 	printf("alku\n");
     while (!mouseCiaStatus()) {
         int o = (frame%2)*320;
-        CopyMemQuick(noitapic, ((UBYTE*)chunkyBuffer + ((finesine[(frame<<7)%(4096<<1)])>>11)), 320*256);
+        int o2 = ((finesine[(frame<<7)%(4096<<1)])>>11);
+        CopyMemQuick(noitapic, ((UBYTE*)chunkyBuffer + o2), (320*256)-o2);
 
         for(y=frame%2;y<256;y+=2) 
     	{
-    		for(x=0;x<320;x+=1) 
+    		for(x=0;x<320;x+=2) 
     		{
-    			if (*((UBYTE*)chunkyBuffer + o) == 0) {
-                    chunkyBuffer[o] = (((x>>3)|(y>>3))+frame);
-    			}
-                o+=1;
+                chunkyBuffer[o] |= (((x>>3)|(y>>3))+frame);
+                o+=2;
     		}
             o+=320;
     	}
 
-        //convertChunkyToBitmap(chunkyBuffer, currentBitmap);
+        for(i = 0; i < 16; i+=8) {
+            off = (i << 2)+frame;
+            fillrect(128-(finesine[(off<<6)%10240]>>10), 128-(finesine[(off<<6)%10240]>>10),
+                    128+(finesine[(off<<6)%10240]>>10), 128+(finesine[(off<<6)%10240]>>10));
+
+        }
+
         c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
     	frame++;
     }
 	printf("loppu tuli:%lu\n", getMilliseconds());
-}
-
-void convertChunkyToBitmap(UBYTE* sourceChunky, struct BitMap *destPlanar)
-{
-    struct c2pStruct c2p;
-    c2p.bmap = destPlanar;
-    c2p.startX = 0;
-    c2p.startY = 0;
-    c2p.width = 320;
-    c2p.height = 256;
-    c2p.chunkybuffer = sourceChunky;
-    ChunkyToPlanarAsm(&c2p);
 }
 
 BOOL initScreen(struct BitMap **b, struct Screen **s)
