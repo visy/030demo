@@ -132,6 +132,8 @@ void fillrect(int x, int y, int x2, int y2) {
 struct Device* TimerBase;
 static struct IORequest timereq;
 
+lua_State *L;
+
 static ULONG getMilliseconds()
 {
   static struct timeval t;
@@ -145,38 +147,37 @@ static ULONG getMilliseconds()
   return b.tv_secs*1000 + b.tv_micro/1000;
 }
 
-/*
- * Create two Screens and two BitMap as Screen content
- * for double buffering. Create a third BitMap, draw a
- * rectangle into it, rotate and blit into Screen
- */
+static int l_c2p (lua_State *LL) {
+  int x = luaL_checknumber(LL, 1);
+  int y = luaL_checknumber(LL, 2);
+  int w = luaL_checknumber(LL, 3);
+  int h = luaL_checknumber(LL, 4);
+
+  c2p1x1_4_c5_bm_word(w, h, x, y, chunkyBuffer, currentBitmap);
+
+  lua_pushnumber(LL, 0);
+  return 1;
+}
+
 int main(void) {
 	int i = 0;
 
-  OpenDevice("timer.device", 0, &timereq, 0);
-  TimerBase = timereq.io_Device;
-  getMilliseconds();
+    OpenDevice("timer.device", 0, &timereq, 0);
+    TimerBase = timereq.io_Device;
+    getMilliseconds();
 
-  for(i=0; i < 256; i++) {
-    ymul[i] = i * 320;
-  }
+    for(i=0; i < 256; i++) {
+        ymul[i] = i * 320;
+    }
 
-
-/*
-  lua_State *L = luaL_newstate();
-  if(L == NULL)
-    return -1;
-  luaL_openlibs(L);
-  luaL_loadstring(L, "print 'hello'");
-  lua_call(L, 0, 0);
-  luaL_loadstring(L, "print(5-4)");
-  lua_call(L, 0, 0);
-  luaL_loadstring(L, "print(5.1-4.1)");
-  lua_call(L, 0, 0);
-  luaL_loadstring(L, "print(5.0*4.0)");
-  lua_call(L, 0, 0);
-  lua_close(L);
-*/
+    L = luaL_newstate();
+    if(L == NULL) {
+        return -1;
+    }
+    
+    luaL_openlibs(L);
+    lua_pushcfunction(L, l_c2p);
+    lua_setglobal(L, "c2p");
 
     /*
     // hide mouse
@@ -201,9 +202,6 @@ int main(void) {
     // set 32 color palette on both double buffered screens
     LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
-    /* main() just does boring boiler plate stuff,
-     * real rotation work is done in execute()
-     */
     execute();
 
 
@@ -224,6 +222,8 @@ _exit_main:
     UnlockPubScreen(NULL, my_wbscreen_ptr);
     FreeVec(emptyPointer);
 */
+    lua_close(L);
+
     exit(RETURN_OK);
     
 }
@@ -262,7 +262,12 @@ void execute() {
 
         }
 
-        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
+        lua_pushinteger(L, frame);
+        lua_setglobal(L, "frame");
+
+        luaL_loadstring(L, "c2p(0,128+(frame%64),320,128-(frame%64))");
+        lua_call(L, 0, 0);
+
     	frame++;
     }
 	printf("loppu tuli:%lu\n", getMilliseconds());
