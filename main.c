@@ -8,8 +8,10 @@
 #include "minilua.h"
 
 #define __builtin_expect(x,y)
+
 // gfx data headers
 #include "noitapic.h"
+#include "cpic.h"
 
 // kalms c2p for 320x256
 extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
@@ -194,16 +196,18 @@ int main(void) {
     currentBitmap = mainBitmap1;
 
     chunkyBuffer = AllocVec(320 * 256 * sizeof(UBYTE), MEMF_CLEAR);
-    CopyMemQuick(noitapic, chunkyBuffer, 320*256);
+//    CopyMemQuick(noitapic, chunkyBuffer, 320*256);
 
-    currentPal = AllocVec(32 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
-    CopyMemQuick(noitapal, currentPal, 32);
+    // cpic pal, 16 colors
+    currentPal = AllocVec(16 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
+    CopyMemQuick(cpicpal, currentPal, 16);
+    LoadRGB4(&(mainScreen1->ViewPort), currentPal, 16);
 
-    // set 32 color palette on both double buffered screens
-    LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
+    // CopyMemQuick(noitapal, currentPal, 32);
+    // set 32 color palette
+    //LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
     execute();
-
 
     FreeVec(chunkyBuffer);
     FreeVec(currentPal);
@@ -241,6 +245,25 @@ void execute() {
     
 	printf("alku\n");
     while (!mouseCiaStatus()) {
+        int o = 0;
+        int y2,x2,h;
+        for(y=0;y<256;y+=1) 
+        {
+            for(x=0;x<320;x+=1) 
+            {
+                x2 = x;
+                y2 = y;
+                if (y >= 150) y2 = y-150;
+                if (x >= 150) x2 = x-150;
+                h = heightmap[(y2)*150+(x2)];
+
+                chunkyBuffer[o] = *((UBYTE*)cpic + (y2)*150+(x2));
+
+                o+=1;
+            }
+        }
+
+        /*
         int o = (frame%2)*320;
         int o2 = ((finesine[(frame<<7)%(4096<<1)])>>11);
         CopyMemQuick(noitapic, ((UBYTE*)chunkyBuffer + o2), (320*256)-o2);
@@ -261,11 +284,11 @@ void execute() {
                     128+(finesine[(off<<6)%10240]>>10), 128+(finesine[(off<<6)%10240]>>10));
 
         }
-
+*/
         lua_pushinteger(L, frame);
         lua_setglobal(L, "frame");
 
-        luaL_loadstring(L, "c2p(0,128+(frame%64),320,128-(frame%64))");
+        luaL_loadstring(L, "c2p(0,0,320,256)");
         lua_call(L, 0, 0);
 
     	frame++;
