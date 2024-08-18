@@ -220,9 +220,9 @@ int main(void) {
 //    CopyMemQuick(noitapic, chunkyBuffer, 320*256);
 
     // cpic pal, 16 colors
-    currentPal = AllocVec(16 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
-    CopyMemQuick(cpicpal, currentPal, 16);
-    LoadRGB4(&(mainScreen1->ViewPort), currentPal, 16);
+    currentPal = AllocVec(32 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
+    CopyMemQuick(cpicpal, currentPal, 32);
+    LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
     // CopyMemQuick(noitapal, currentPal, 32);
     // set 32 color palette
@@ -262,17 +262,20 @@ void vline(int x, int y1) {
     // Calculate the starting offset in the screen array
     UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
 
-    int height = 255 - y1 + 1; // Number of pixels to draw
     int width = 320;
-
-    int remainder = height % 4;
-    int loop_count = height / 4;
 
      __asm__ __volatile__ (
         "movea.l %0, a0\n"          // Load start_ptr into address register a0
         "move.b %1, d0\n"           // Load color into data register d0
 
-        // Manually unrolling the loop from y to 255
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
         "move.b d0, (a0)\n"
         "adda.l %2, a0\n"  // Move to the next line
         "move.b d0, (a0)\n"
@@ -311,6 +314,13 @@ void vline(int x, int y1) {
         "adda.l %2, a0\n"
         "move.b d0, (a0)\n"
         "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+
 
 
         : /* no outputs */
@@ -326,10 +336,10 @@ inline int mod(int a, int b)
 }
 void execute() {
     int x,y,z,i;
-    uint off = 0;
-    int dist = 64;
-    int horizon = 128;
-    int height = 192*2;
+    int off = 0;
+    int dist = 92;
+    int horizon = -488;
+    int height = 500;
     int to,tomul = 0;
     int yo = ymul[255];
     int px,py,pz=0;
@@ -343,30 +353,34 @@ void execute() {
 
     while (!mouseCiaStatus()) {
         py = -frame;
-        for (z = dist;z > 3;z-=1) {
+        for (z = dist+frame%2;z > 7;z-=2) {
             lx = (-z+px);
             ly = (-z+py);
 
-            ty = (int)(ly>>1);
+            ty = (int)(ly);
             ty = mod(ty,150);
             tomul = tmul[ty];
-            for(x=frame%2;x<320;x+=2) {
-                tx = (int)(x>>2);
-                to = tomul+tx;
+            for(x=frame%3;x<320;x+=3) {
+                tx = (int)((frame+x)>>2);
+                tx = mod(tx,150);
 
-                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
-                off+=horizon; // add horizon
+                to = tomul+(tx);
+
+                //off = (zdiv[((height-(heightmap[to])))-1][z-1]);
+                off = (height-(heightmap[to])) / z;
+                off = off<<2;
                 drawcolor = *((UBYTE*)cpic + to);
-                vline(x,off&255);
+                vline(x,(int)(off));
 
             }
         }
 
-        memset(chunkyBuffer+ymul[220], 12, 320*36);
-
+/*
         for (y = 0;y<128;y+=1) {
             memcpy(chunkyBuffer+0+ymul[y], (chunkyBuffer+ymul[255])-ymul[y],320);
         }
+*/
+
 /*
         for (z = dist;z > 1;z-=1) {
             lx = (-z+px);
