@@ -40,6 +40,15 @@ int frame = 0;
 
 int finesine[];
 
+int zdiv[512][512];
+int zmod[512][512];
+
+int tmul[256] = 
+{
+    0
+};
+
+
 int ymul[256] = 
 {
     0
@@ -49,7 +58,7 @@ int drawcolor = 7;
 
 inline void pixel(int x,int y) {
     // PLOT x,y point on surface
-    chunkyBuffer[ymul[y]+x+32] = (chunkyBuffer[ymul[y]+x+32]-1) & drawcolor;
+    chunkyBuffer[ymul[y]+x] = drawcolor;
 }
 
 
@@ -162,15 +171,25 @@ static int l_c2p (lua_State *LL) {
 }
 
 int main(void) {
-	int i = 0;
+	int i,ii = 0;
 
     OpenDevice("timer.device", 0, &timereq, 0);
     TimerBase = timereq.io_Device;
     getMilliseconds();
 
     for(i=0; i < 256; i++) {
+        tmul[i] = i * 150;
         ymul[i] = i * 320;
     }
+
+    for(ii=0; ii < 512; ii++) {
+        for(i=0; i < 512; i++) {
+            zdiv[ii][i] = (ii+1) / (i+1);
+            zmod[ii][i] = (ii+1) % (i+1);
+        }
+    }
+    
+
 
     L = luaL_newstate();
     if(L == NULL) {
@@ -180,6 +199,8 @@ int main(void) {
     luaL_openlibs(L);
     lua_pushcfunction(L, l_c2p);
     lua_setglobal(L, "c2p");
+
+    
 
     /*
     // hide mouse
@@ -195,7 +216,7 @@ int main(void) {
     currentScreen = mainScreen1;
     currentBitmap = mainBitmap1;
 
-    chunkyBuffer = AllocVec(320 * 256 * sizeof(UBYTE), MEMF_CLEAR);
+    chunkyBuffer = AllocVec(320 * 400 * sizeof(UBYTE), MEMF_CLEAR);
 //    CopyMemQuick(noitapic, chunkyBuffer, 320*256);
 
     // cpic pal, 16 colors
@@ -236,33 +257,157 @@ _exit_main:
 ULONG millis;
 ULONG st;
 
+void vline(int x, int y1) {
+
+    // Calculate the starting offset in the screen array
+    UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
+
+    int height = 255 - y1 + 1; // Number of pixels to draw
+    int width = 320;
+
+    int remainder = height % 4;
+    int loop_count = height / 4;
+
+     __asm__ __volatile__ (
+        "movea.l %0, a0\n"          // Load start_ptr into address register a0
+        "move.b %1, d0\n"           // Load color into data register d0
+
+        // Manually unrolling the loop from y to 255
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"
+
+
+        : /* no outputs */
+        : "a" (start_ptr), "d" (drawcolor), "d" (width)
+        : "d0", "a0"
+    );
+}
+
+inline int mod(int a, int b)
+{
+    int r = a % b;
+    return r < 0 ? r + b : r;
+}
 void execute() {
-    int x,y,i;
-    int off = 0;
+    int x,y,z,i;
+    uint off = 0;
+    int dist = 64;
+    int horizon = 128;
+    int height = 192*2;
+    int to,tomul = 0;
+    int yo = ymul[255];
+    int px,py,pz=0;
+
+    int lx,ly,rx,ry= 0;
+    int tx,ty = 0;
     ScreenToFront(currentScreen);
     WaitTOF();
     // chunky buffer objects are converted to planar
-    
 	printf("alku\n");
+
     while (!mouseCiaStatus()) {
+        py = -frame;
+        for (z = dist;z > 3;z-=1) {
+            lx = (-z+px);
+            ly = (-z+py);
+
+            ty = (int)(ly>>1);
+            ty = mod(ty,150);
+            tomul = tmul[ty];
+            for(x=frame%2;x<320;x+=2) {
+                tx = (int)(x>>2);
+                to = tomul+tx;
+
+                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
+                off+=horizon; // add horizon
+                drawcolor = *((UBYTE*)cpic + to);
+                vline(x,off&255);
+
+            }
+        }
+
+        memset(chunkyBuffer+ymul[220], 12, 320*36);
+
+        for (y = 0;y<128;y+=1) {
+            memcpy(chunkyBuffer+0+ymul[y], (chunkyBuffer+ymul[255])-ymul[y],320);
+        }
+/*
+        for (z = dist;z > 1;z-=1) {
+            lx = (-z+px);
+            ly = (-z+py);
+            rx = (z+px);
+            ry = (ly);
+
+            dx = (rx-lx)/320;
+            for (i = 0;i < 320;i+=1) {
+                
+                //off = *((int*)zdiv + (((height-heightmap[heo])<<8) + z));
+                off = (height-heightmap[((((uint)ly)%150)*150)+((uint)(lx) % 150)]) / z;
+                off = off<<5; // scale to heights up
+                off+=horizon; // add horizon
+                // calculate color from coord and render voxel column
+                drawcolor = *((UBYTE*)cpic + (((int)floor(ly) % 150) * 150)+((int)floor(lx) % 150));
+                if (off < 255 && off >= 0) {
+                    vline(i, off);
+                }
+
+                lx += dx;
+            }
+        } 
+        */
+/*
         int o = 0;
         int y2,x2,h;
         for(y=0;y<256;y+=1) 
         {
             for(x=0;x<320;x+=1) 
             {
-                x2 = x;
-                y2 = y;
-                if (y >= 150) y2 = y-150;
-                if (x >= 150) x2 = x-150;
-                h = heightmap[(y2)*150+(x2)];
+                x2 = abs(x+frame) % 150;
+                y2 = abs(y-frame) % 150;
+                h = heightmap[(y2)*150+(x2-frame)];
 
-                chunkyBuffer[o] = *((UBYTE*)cpic + (y2)*150+(x2));
+                chunkyBuffer[o] = *((UBYTE*)cpic + (y2)*150+(x2))|(h>>4);
 
                 o+=1;
             }
         }
-
+*/
         /*
         int o = (frame%2)*320;
         int o2 = ((finesine[(frame<<7)%(4096<<1)])>>11);
