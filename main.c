@@ -40,6 +40,7 @@ int frame = 0;
 
 int finesine[];
 
+int zmul[512][512];
 int zdiv[512][512];
 int zmod[512][512];
 
@@ -184,6 +185,7 @@ int main(void) {
 
     for(ii=0; ii < 512; ii++) {
         for(i=0; i < 512; i++) {
+            zmul[ii][i] = (ii-160) * (i);
             zdiv[ii][i] = (ii+1) / (i+1);
             zmod[ii][i] = (ii+1) % (i+1);
         }
@@ -309,17 +311,6 @@ void vline(int x, int y1) {
         "move.b d0, (a0)\n"
         "adda.l %2, a0\n"
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
 
 
 
@@ -345,7 +336,7 @@ void execute() {
     int px,py,pz=0;
 
     int lx,ly,rx,ry= 0;
-    int tx,ty = 0;
+    int tx,ty,dx = 0;
     ScreenToFront(currentScreen);
     WaitTOF();
     // chunky buffer objects are converted to planar
@@ -353,27 +344,24 @@ void execute() {
 
     while (!mouseCiaStatus()) {
         py = -frame;
-        for (z = dist+frame%2;z > 7;z-=2) {
-            lx = (-z+px);
-            ly = (-z+py);
-
-            ty = (int)(ly);
-            ty = mod(ty,150);
+        px = frame<<1;
+        for (z = dist+frame%2;z > 8;z-=2) {
+            ty = mod((int)(-z+py),150);
             tomul = tmul[ty];
-            for(x=frame%3;x<320;x+=3) {
-                tx = (int)((frame+x)>>2);
+            for(x=frame%2;x<320;x+=2) {
+                tx = (zmul[(x)][z])>>6;
+                tx = tx + px;
                 tx = mod(tx,150);
-
                 to = tomul+(tx);
-
-                //off = (zdiv[((height-(heightmap[to])))-1][z-1]);
-                off = (height-(heightmap[to])) / z;
+                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
                 off = off<<2;
                 drawcolor = *((UBYTE*)cpic + to);
-                vline(x,(int)(off));
-
+                vline(x,(off));
+                vline(x+1,(off));
             }
         }
+
+        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
 
 /*
         for (y = 0;y<128;y+=1) {
@@ -444,11 +432,15 @@ void execute() {
 
         }
 */
+
+/*
         lua_pushinteger(L, frame);
         lua_setglobal(L, "frame");
 
         luaL_loadstring(L, "c2p(0,0,320,256)");
         lua_call(L, 0, 0);
+*/
+
 
     	frame++;
     }
