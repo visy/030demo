@@ -13,8 +13,11 @@
 #include "noitapic.h"
 #include "cpic.h"
 
-// kalms c2p for 320x256
+// kalms: c2p for 320x256
 extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
+
+// Lynxx: fast lines
+extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
 
 struct BitMap *mainBitmap1 = NULL;
 
@@ -216,7 +219,7 @@ int main(void) {
     currentScreen = mainScreen1;
     currentBitmap = mainBitmap1;
 
-    chunkyBuffer = AllocVec(320 * 400 * sizeof(UBYTE), MEMF_CLEAR);
+    chunkyBuffer = AllocVec(320 * 256 * sizeof(UBYTE), MEMF_FAST | MEMF_CLEAR);
 //    CopyMemQuick(noitapic, chunkyBuffer, 320*256);
 
     // cpic pal, 16 colors
@@ -257,60 +260,187 @@ _exit_main:
 ULONG millis;
 ULONG st;
 
-void vline(int x, int y1) {
+void vlineS(int x, int y1) {
 
     // Calculate the starting offset in the screen array
     UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
 
-    int width = 320;
+    int width = 320-1;
 
      __asm__ __volatile__ (
         "movea.l %0, a0\n"          // Load start_ptr into address register a0
         "move.b %1, d0\n"           // Load color into data register d0
 
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
+        "adda.l #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
         "adda.l %2, a0\n"  // Move to the next line
+
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
+        "adda.l #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
+        "adda.l #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
+        "adda.l #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"
-        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        : /* no outputs */
+        : "a" (start_ptr), "d" (drawcolor), "d" (width)
+        : "d0", "a0"
+    );
+}
 
 
+void vlineM(int x, int y1) {
+
+    // Calculate the starting offset in the screen array
+    UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
+
+    int width = 320-1;
+
+     __asm__ __volatile__ (
+        "movea.l %0, a0\n"          // Load start_ptr into address register a0
+        "move.b %1, d0\n"           // Load color into data register d0
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+
+        : /* no outputs */
+        : "a" (start_ptr), "d" (drawcolor), "d" (width)
+        : "d0", "a0"
+    );
+}
+
+void vlineL(int x, int y1) {
+
+    // Calculate the starting offset in the screen array
+    UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
+
+    int width = 320-1;
+
+     __asm__ __volatile__ (
+        "movea.l %0, a0\n"          // Load start_ptr into address register a0
+        "move.b %1, d0\n"           // Load color into data register d0
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
+
+        "move.b d0, (a0)\n"
+        "adda.l #1, a0\n" // next pixel
+        "move.b d0, (a0)\n"
+        "adda.l %2, a0\n"  // Move to the next line
 
         : /* no outputs */
         : "a" (start_ptr), "d" (drawcolor), "d" (width)
@@ -377,18 +507,17 @@ void execute() {
     fillrect(0,0,320,64);
 
     while (!mouseCiaStatus()) {
-        py = -frame;
-        px = frame<<1;
+        py = -frame<<1;
+        px = frame;
         bil = frame%2;
 
         memset(chunkyBuffer+10240,10,17920);
         memset(chunkyBuffer+64320,15,12480);
-        for (z = 72;z > 12;z-=1) {
+        for (z = 72;z > 32;z-=1) {
             ty = mod((int)(-z+py),150);
             tomul = tmul[ty];
-            for(x=bil;x<160;x+=2) {
-                xd = x+80;
-                tx = (zmul[xd][z])>>6;
+            for(x=bil;x<320;x+=2) {
+                tx = (zmul[x][z])>>6;
                 tx = tx + px;
                 tx = mod(tx,150);
                 to = tomul+(tx);
@@ -396,8 +525,39 @@ void execute() {
                 off = off<<2;
                 off+=64;
                 drawcolor = *((UBYTE*)cpic + to);
-                vline(xd,(off));
-                vline(xd+1,(off));
+                vlineS(x, off);
+            }
+        }
+
+        for (z = 32;z > 17;z-=1) {
+            ty = mod((int)(-z+py),150);
+            tomul = tmul[ty];
+            for(x=bil;x<320;x+=2) {
+                tx = (zmul[x][z])>>6;
+                tx = tx + px;
+                tx = mod(tx,150);
+                to = tomul+(tx);
+                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
+                off = off<<2;
+                off+=64;
+                drawcolor = *((UBYTE*)cpic + to);
+                vlineM(x,off);
+            }
+        }
+
+        for (z = 17;z > 11;z-=1) {
+            ty = mod((int)(-z+py),150);
+            tomul = tmul[ty];
+            for(x=bil;x<320;x+=2) {
+                tx = (zmul[x][z])>>6;
+                tx = tx + px;
+                tx = mod(tx,150);
+                to = tomul+(tx);
+                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
+                off = off<<2;
+                off+=64;
+                drawcolor = *((UBYTE*)cpic + to);
+                vlineL(x,off);
             }
         }
 
@@ -407,13 +567,10 @@ void execute() {
             for(x=0;x<128;x++) {
                 cc = *((UBYTE*)flypic + (y<<7)+x);
                 if (cc < 0x0f) {
-                    chunkyBuffer[ymul[y+26+off2]+x+84+off] = cc;
+                    chunkyBuffer[ymul[y+26+off2]+x+20+off] = cc;
                 }
             }
         }
-
-        drawcolor = 15;
-        rect(80,0,240,255-16);
 
         if (frame == 0)
         c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
