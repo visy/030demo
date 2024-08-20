@@ -319,17 +319,37 @@ void vline(int x, int y1) {
 }
 
 inline int mod(int dividend, int divisor) {
+    int absDividend = 0;
+    int absDivisor = 0;
     int result = 0;
+    int tempDivisor;
+
     if (divisor == 0) {
         // Modulo by zero is undefined
         return -1; // or handle the error as needed
     }
 
-    result = abs(dividend);
-    
-    // Keep subtracting the divisor from the dividend until the result is less than the divisor
-    while (result >= divisor) {
-        result -= divisor;
+    // Get absolute values
+    absDividend = abs(dividend);
+    absDivisor = abs(divisor);
+    result = absDividend;
+
+    // Efficiently subtract divisor by shifting it closer to the dividend
+    while (result >= absDivisor) {
+        tempDivisor = absDivisor;
+
+        // Find the largest multiple of divisor that is less than or equal to result
+        while ((tempDivisor << 1) <= result) {
+            tempDivisor <<= 1;
+        }
+
+        // Subtract that multiple from result
+        result -= tempDivisor;
+    }
+
+    // Adjust result for the original sign of the dividend
+    if (dividend < 0 && result != 0) {
+        result = absDivisor - result;
     }
 
     return result;
@@ -343,7 +363,7 @@ void execute() {
     int height = 500;
     int to,tomul = 0;
     int yo = ymul[255];
-    int px,py,pz=0;
+    int px,py,pz,xd=0;
     UBYTE bil = 0;
     UBYTE cc,off2;
 
@@ -361,13 +381,14 @@ void execute() {
         px = frame<<1;
         bil = frame%2;
 
-        memset(chunkyBuffer+4800,10,23999);
-        memset(chunkyBuffer+64640,15,12800);
-        for (z = dist;z > 12;z-=1) {
+        memset(chunkyBuffer+10240,10,17920);
+        memset(chunkyBuffer+64320,15,12480);
+        for (z = 72;z > 12;z-=1) {
             ty = mod((int)(-z+py),150);
             tomul = tmul[ty];
             for(x=bil;x<160;x+=2) {
-                tx = (zmul[(x+80)][z])>>6;
+                xd = x+80;
+                tx = (zmul[xd][z])>>6;
                 tx = tx + px;
                 tx = mod(tx,150);
                 to = tomul+(tx);
@@ -375,8 +396,8 @@ void execute() {
                 off = off<<2;
                 off+=64;
                 drawcolor = *((UBYTE*)cpic + to);
-                vline(80+x,(off));
-                vline(80+x+1,(off));
+                vline(xd,(off));
+                vline(xd+1,(off));
             }
         }
 
@@ -386,7 +407,7 @@ void execute() {
             for(x=0;x<128;x++) {
                 cc = *((UBYTE*)flypic + (y<<7)+x);
                 if (cc < 0x0f) {
-                    chunkyBuffer[ymul[y+8+off2]+x+32+52+off] = cc;
+                    chunkyBuffer[ymul[y+26+off2]+x+84+off] = cc;
                 }
             }
         }
@@ -394,7 +415,10 @@ void execute() {
         drawcolor = 15;
         rect(80,0,240,255-16);
 
+        if (frame == 0)
         c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
+        else
+        c2p1x1_4_c5_bm_word(320, 190, 0, 32, chunkyBuffer+10240, currentBitmap);
 
 /*
         for (y = 0;y<128;y+=1) {
