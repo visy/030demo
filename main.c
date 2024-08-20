@@ -272,24 +272,24 @@ void vlineS(int x, int y1) {
         "move.b %1, d0\n"           // Load color into data register d0
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         : /* no outputs */
         : "a" (start_ptr), "d" (drawcolor), "d" (width)
@@ -310,49 +310,49 @@ void vlineM(int x, int y1) {
         "move.b %1, d0\n"           // Load color into data register d0
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
 
         : /* no outputs */
@@ -373,74 +373,74 @@ void vlineL(int x, int y1) {
         "move.b %1, d0\n"           // Load color into data register d0
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         "move.b d0, (a0)\n"
-        "adda.l #1, a0\n" // next pixel
+        "add #1, a0\n" // next pixel
         "move.b d0, (a0)\n"
-        "adda.l %2, a0\n"  // Move to the next line
+        "adda.l #319, a0\n"  // Move to the next line
 
         : /* no outputs */
         : "a" (start_ptr), "d" (drawcolor), "d" (width)
