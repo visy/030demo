@@ -186,9 +186,9 @@ int main(void) {
 
     for(ii=0; ii < 512; ii++) {
         for(i=0; i < 512; i++) {
+            zmod[ii][i] = (ii+1) % (i+1);
             zmul[ii][i] = (ii-160) * (i);
             zdiv[ii][i] = (ii+1) / (i+1);
-            zmod[ii][i] = (ii+1) % (i+1);
         }
     }
     
@@ -318,15 +318,27 @@ void vline(int x, int y1) {
     );
 }
 
-inline int mod(int a, int b)
-{
-    int r = a % b;
-    return r < 0 ? r + b : r;
+inline int mod(int dividend, int divisor) {
+    int result = 0;
+    if (divisor == 0) {
+        // Modulo by zero is undefined
+        return -1; // or handle the error as needed
+    }
+
+    result = abs(dividend);
+    
+    // Keep subtracting the divisor from the dividend until the result is less than the divisor
+    while (result >= divisor) {
+        result -= divisor;
+    }
+
+    return result;
 }
+
 void execute() {
     int x,y,z,i;
     int off = 0;
-    int dist = 80;
+    int dist = 72;
     int horizon = -488;
     int height = 500;
     int to,tomul = 0;
@@ -341,17 +353,21 @@ void execute() {
     WaitTOF();
     // chunky buffer objects are converted to planar
 	printf("alku\n");
+    drawcolor = 10;
+    fillrect(0,0,320,64);
 
     while (!mouseCiaStatus()) {
         py = -frame;
         px = frame<<1;
         bil = frame%2;
-        memset(chunkyBuffer,10,320*92);
-        for (z = dist+bil;z > 12;z-=2) {
+
+        memset(chunkyBuffer+4800,10,23999);
+        memset(chunkyBuffer+64640,15,12800);
+        for (z = dist;z > 12;z-=1) {
             ty = mod((int)(-z+py),150);
             tomul = tmul[ty];
-            for(x=bil;x<320;x+=2) {
-                tx = (zmul[(x)][z])>>6;
+            for(x=bil;x<160;x+=2) {
+                tx = (zmul[(x+80)][z])>>6;
                 tx = tx + px;
                 tx = mod(tx,150);
                 to = tomul+(tx);
@@ -359,20 +375,24 @@ void execute() {
                 off = off<<2;
                 off+=64;
                 drawcolor = *((UBYTE*)cpic + to);
-                vline(x,(off));
-                vline(x+1,(off));
+                vline(80+x,(off));
+                vline(80+x+1,(off));
             }
         }
 
         off2 = sine[(frame<<2)&0xff]>>3;
+        off = sine[(frame<<3)&0xff]>>4;
         for(y=0;y<128;y++) {
             for(x=0;x<128;x++) {
                 cc = *((UBYTE*)flypic + (y<<7)+x);
                 if (cc < 0x0f) {
-                    chunkyBuffer[ymul[y+8+off2]+x+32] = cc;
+                    chunkyBuffer[ymul[y+8+off2]+x+32+52+off] = cc;
                 }
             }
         }
+
+        drawcolor = 15;
+        rect(80,0,240,255-16);
 
         c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
 
