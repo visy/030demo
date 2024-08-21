@@ -182,6 +182,8 @@ static int l_c2p (lua_State *LL) {
 extern ULONG mt_get_vbr(void);
 
 struct ExecBase     *SysBase;
+UBYTE* mod;
+#define MOD_SIZE    8340
 
 static ULONG App_GetVBR(void)
 {
@@ -203,8 +205,12 @@ static ULONG App_GetVBR(void)
     return vbr;
 }
 
+UBYTE *music;
+
+
 int main(void) {
 	int i,ii = 0;
+    BPTR file_ptr;
 
     SysBase = *((struct ExecBase **)4);
 
@@ -256,10 +262,27 @@ int main(void) {
     // set 32 color palette
     //LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
-    startup();
+    mod = (UBYTE*)AllocMem(MOD_SIZE, MEMF_CHIP);
+
+    if (file_ptr = Open("intro1.mod", MODE_OLDFILE)) 
+    {
+        Read(file_ptr, mod, MOD_SIZE);
+        Close(file_ptr);
+    }
+
     mt_install_cia(&custom, App_GetVBR(), 1);
+    mt_init(&custom, mod, NULL, 0);
+    mt_mastervol(&custom, 0x40);
+    mt_Enable = 1;
+
+
+    startup();
+
 
     execute();
+
+    mt_end(&custom);
+    mt_remove_cia(&custom);
 
     FreeVec(chunkyBuffer);
     FreeVec(currentPal);
