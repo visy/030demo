@@ -17,6 +17,13 @@
 
 extern struct Custom custom;
 
+extern ULONG mt_get_vbr(void);
+
+struct ExecBase     *SysBase;
+
+#define MOD_SIZE    86016
+UBYTE* moddata;
+
 // kalms: c2p for 320x256
 extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
 
@@ -179,12 +186,6 @@ static int l_c2p (lua_State *LL) {
   return 1;
 }
 
-extern ULONG mt_get_vbr(void);
-
-struct ExecBase     *SysBase;
-UBYTE* mod;
-#define MOD_SIZE    8340
-
 static ULONG App_GetVBR(void)
 {
     // VBR is 0 on 68000, supervisor register on 68010+.
@@ -205,10 +206,8 @@ static ULONG App_GetVBR(void)
     return vbr;
 }
 
-UBYTE *music;
-
-
 int main(void) {
+    UWORD oldDMA;
 	int i,ii = 0;
     BPTR file_ptr;
 
@@ -262,28 +261,46 @@ int main(void) {
     // set 32 color palette
     //LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
-    mod = (UBYTE*)AllocMem(MOD_SIZE, MEMF_CHIP);
+    moddata = (UBYTE*)AllocVec(MOD_SIZE * sizeof(UBYTE), MEMF_CHIP);
 
-    if (file_ptr = Open("intro1.mod", MODE_OLDFILE)) 
+    if ((file_ptr = Open("song1.mod", MODE_OLDFILE)))
     {
-        Read(file_ptr, mod, MOD_SIZE);
+        Read(file_ptr, moddata, MOD_SIZE);
         Close(file_ptr);
     }
 
-    mt_install_cia(&custom, App_GetVBR(), 1);
-    mt_init(&custom, mod, NULL, 0);
+    mt_install_cia(&custom, (void*)App_GetVBR(), 1);
+    mt_init(&custom, moddata, NULL, 0);
     mt_mastervol(&custom, 0x40);
     mt_Enable = 1;
 
-
     startup();
-
 
     execute();
 
+
+    mt_mastervol(&custom, 0);
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+
+    mt_Enable = 0;
     mt_end(&custom);
     mt_remove_cia(&custom);
 
+    FreeVec(moddata);
     FreeVec(chunkyBuffer);
     FreeVec(currentPal);
 
@@ -498,6 +515,7 @@ void execute() {
 
     	frame++;
     }
+
 }
 
 BOOL initScreen(struct BitMap **b, struct Screen **s)

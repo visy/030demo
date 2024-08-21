@@ -1,13 +1,14 @@
 CC=m68k-amigaos-gcc
 VASM=vasmm68k_mot
 VASMFLAGS=-Faout -devpac -m68030
-CFLAGS = -D__far="" -Wall -O3 -fomit-frame-pointer -s  -I. -m68030 -mregparm=4
+CFLAGS = -D__far="" -Wall -O3 -s -I. -m68030
 LDFLAGS = -noixemul -L. 
-SOURCES=main.c module.c dlfcn.c starlight/graphics_controller.c starlight/utils.c
+SOURCES=main.c dlfcn.c starlight/graphics_controller.c starlight/utils.c
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=demo.exe
 
 all: ptplayer.o c2p_kalms.o c2p.o p2c.o $(SOURCES) $(EXECUTABLE) 
+
 
 ptplayer.o: ptplayer/ptplayer.asm
 	$(VASM) $(VASMFLAGS) -o ptplayer.o ptplayer/ptplayer.asm
