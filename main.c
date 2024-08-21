@@ -280,6 +280,9 @@ int main(void) {
 
 
     mt_mastervol(&custom, 0);
+    mt_Enable = 0;
+    mt_end(&custom);
+
     WaitTOF();
     WaitTOF();
     WaitTOF();
@@ -296,8 +299,6 @@ int main(void) {
     WaitTOF();
     WaitTOF();
 
-    mt_Enable = 0;
-    mt_end(&custom);
     mt_remove_cia(&custom);
 
     FreeVec(moddata);
