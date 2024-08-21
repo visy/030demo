@@ -269,7 +269,7 @@ int main(void) {
         Close(file_ptr);
     }
 
-    mt_install_cia(&custom, (void*)App_GetVBR(), 1);
+    mt_install_cia(&custom, App_GetVBR(), 1);
     mt_init(&custom, moddata, NULL, 0);
     mt_mastervol(&custom, 0x40);
     mt_Enable = 1;
