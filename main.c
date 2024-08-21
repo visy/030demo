@@ -48,18 +48,13 @@ int zmul[512][512];
 int zdiv[512][512];
 int zmod[512][512];
 
-int tmul[256] = 
-{
-    0
-};
-
 
 int ymul[256] = 
 {
     0
 };
 
-int drawcolor = 7;
+UBYTE drawcolor = 7;
 
 inline void pixel(int x,int y) {
     // PLOT x,y point on surface
@@ -150,17 +145,22 @@ static struct IORequest timereq;
 
 lua_State *L;
 
-static ULONG getMilliseconds()
-{
-  static struct timeval t;
-  struct timeval a, b;
+static struct timeval startTime;
+ 
+void startup() {
+    OpenDevice("timer.device", 0, &timereq, 0);
+    TimerBase = timereq.io_Device;
 
-  GetSysTime(&a);
-  b = a;
-  SubTime(&b, &t);
-  t = a;
+  GetSysTime(&startTime);
+}
+ 
+ULONG getMilliseconds() {
+    struct timeval endTime;
+ 
+    GetSysTime(&endTime);
+    SubTime(&endTime, &startTime);
 
-  return b.tv_secs*1000 + b.tv_micro/1000;
+    return (endTime.tv_secs * 1000 + endTime.tv_micro / 1000);
 }
 
 static int l_c2p (lua_State *LL) {
@@ -178,12 +178,7 @@ static int l_c2p (lua_State *LL) {
 int main(void) {
 	int i,ii = 0;
 
-    OpenDevice("timer.device", 0, &timereq, 0);
-    TimerBase = timereq.io_Device;
-    getMilliseconds();
-
     for(i=0; i < 256; i++) {
-        tmul[i] = i * 150;
         ymul[i] = i * 320;
     }
 
@@ -231,6 +226,8 @@ int main(void) {
     // set 32 color palette
     //LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
+    startup();
+
     execute();
 
     FreeVec(chunkyBuffer);
@@ -242,7 +239,6 @@ int main(void) {
 
     FreeBitMap(mainBitmap1);
 _exit_free_temp_bitmap:
-_exit_main:
     // restore mouse
 /*
     my_wbscreen_ptr = LockPubScreen("Workbench");
@@ -260,193 +256,10 @@ _exit_main:
 ULONG millis;
 ULONG st;
 
-void vlineS(int x, int y1) {
+extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
 
-    // Calculate the starting offset in the screen array
-    UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
+extern void vline(void* ChunkyScreen __asm("a0"), int color __asm("d0"), int height __asm("d1"));
 
-    int width = 320-1;
-
-     __asm__ __volatile__ (
-        "movea.l %0, a0\n"          // Load start_ptr into address register a0
-        "move.b %1, d0\n"           // Load color into data register d0
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        : /* no outputs */
-        : "a" (start_ptr), "d" (drawcolor), "d" (width)
-        : "d0", "a0"
-    );
-}
-
-
-void vlineM(int x, int y1) {
-
-    // Calculate the starting offset in the screen array
-    UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
-
-    int width = 320-1;
-
-     __asm__ __volatile__ (
-        "movea.l %0, a0\n"          // Load start_ptr into address register a0
-        "move.b %1, d0\n"           // Load color into data register d0
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-
-        : /* no outputs */
-        : "a" (start_ptr), "d" (drawcolor), "d" (width)
-        : "d0", "a0"
-    );
-}
-
-void vlineL(int x, int y1) {
-
-    // Calculate the starting offset in the screen array
-    UBYTE *start_ptr = chunkyBuffer + ymul[y1] + x;
-
-    int width = 320-1;
-
-     __asm__ __volatile__ (
-        "movea.l %0, a0\n"          // Load start_ptr into address register a0
-        "move.b %1, d0\n"           // Load color into data register d0
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        "move.b d0, (a0)\n"
-        "add #1, a0\n" // next pixel
-        "move.b d0, (a0)\n"
-        "adda.l #319, a0\n"  // Move to the next line
-
-        : /* no outputs */
-        : "a" (start_ptr), "d" (drawcolor), "d" (width)
-        : "d0", "a0"
-    );
-}
 
 inline int mod(int dividend, int divisor) {
     int absDividend = 0;
@@ -486,19 +299,22 @@ inline int mod(int dividend, int divisor) {
 }
 
 void execute() {
-    int x,y,z,i;
+    int x,y,z;
     int off = 0;
-    int dist = 72;
-    int horizon = -488;
+    UBYTE off2,off3;
     int height = 500;
     int to,tomul = 0;
-    int yo = ymul[255];
-    int px,py,pz,xd=0;
+    UBYTE px,py=0;
     UBYTE bil = 0;
-    UBYTE cc,off2;
+    UBYTE cc;
+    UBYTE* sourcePtr = (UBYTE*)flypic;
+    UBYTE* destPtr;
+    ULONG st,et;
+    UBYTE drawcolor2;
 
-    int lx,ly,rx,ry= 0;
-    int tx,ty,dx = 0;
+    int xoff = 0;
+    UBYTE tx,ty,zs = 0;
+    UBYTE dt,dta = 0;
     ScreenToFront(currentScreen);
     WaitTOF();
     // chunky buffer objects are converted to planar
@@ -507,75 +323,45 @@ void execute() {
     fillrect(0,0,320,64);
 
     while (!mouseCiaStatus()) {
-        py = -frame<<1;
-        px = frame;
-        bil = frame%2;
+        dt = (et-st)>>5;
+        st = getMilliseconds();
 
-        memset(chunkyBuffer+10240,10,17920);
-        memset(chunkyBuffer+64320,15,12480);
-        for (z = 72;z > 32;z-=1) {
-            ty = mod((int)(-z+py),150);
-            tomul = tmul[ty];
-            for(x=bil;x<320;x+=2) {
-                tx = (zmul[x][z])>>6;
-                tx = tx + px;
-                tx = mod(tx,150);
-                to = tomul+(tx);
-                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
-                off = off<<2;
+        dta = dta + dt;
+        py = -dta;
+        px = -py;
+        off2 = sine[(64+(dta<<3))&0xff]>>5;
+        off3 = sine[(dta<<3)&0xff]>>5;
+
+        memset(chunkyBuffer+10240,10,17920+5120);
+        for (z = 46;z > 11;z-=1) {
+            
+            ty = -z+py;
+
+            tomul = ty<<8;
+
+            for(x=0;x<320;x+=2) {
+                tx = (zmul[x][z >> 1] >> 5) + px;
+                to = tomul+tx;
+                off = (zdiv[(height-(heightmap[to]))-1][z-1]);
+                off=off+off+off+off;
                 off+=64;
-                drawcolor = *((UBYTE*)cpic + to);
-                vlineS(x, off);
+                drawcolor = *((UBYTE*)cpic2 + to);
+                drawcolor2 = *((UBYTE*)cpic2 + to-1);
+                xoff = ymul[off]+x; 
+                vline(chunkyBuffer+xoff, (drawcolor2 << 8) | drawcolor, ((off+32)>>4)+1);
             }
         }
 
-        for (z = 32;z > 17;z-=1) {
-            ty = mod((int)(-z+py),150);
-            tomul = tmul[ty];
-            for(x=bil;x<320;x+=2) {
-                tx = (zmul[x][z])>>6;
-                tx = tx + px;
-                tx = mod(tx,150);
-                to = tomul+(tx);
-                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
-                off = off<<2;
-                off+=64;
-                drawcolor = *((UBYTE*)cpic + to);
-                vlineM(x,off);
+
+        for (y = 0; y < 128; y++) {
+            destPtr = &chunkyBuffer[ymul[y + 26 + off2] + 20 + off3]; // Pre-calculate the destination pointer base
+            for (x = 0; x < 128; x++) {
+                cc = sourcePtr[(y << 7) + x]; // Access the source pixel
+                destPtr[x] = (cc != 0x0F) ? cc : destPtr[x]; // Use a ternary operator to avoid an explicit if statement
             }
         }
 
-        for (z = 17;z > 11;z-=1) {
-            ty = mod((int)(-z+py),150);
-            tomul = tmul[ty];
-            for(x=bil;x<320;x+=2) {
-                tx = (zmul[x][z])>>6;
-                tx = tx + px;
-                tx = mod(tx,150);
-                to = tomul+(tx);
-                off = (zdiv[((height-(heightmap[to])))-1][z-1]);
-                off = off<<2;
-                off+=64;
-                drawcolor = *((UBYTE*)cpic + to);
-                vlineL(x,off);
-            }
-        }
-
-        off2 = sine[(frame<<2)&0xff]>>3;
-        off = sine[(frame<<3)&0xff]>>4;
-        for(y=0;y<128;y++) {
-            for(x=0;x<128;x++) {
-                cc = *((UBYTE*)flypic + (y<<7)+x);
-                if (cc < 0x0f) {
-                    chunkyBuffer[ymul[y+26+off2]+x+20+off] = cc;
-                }
-            }
-        }
-
-        if (frame == 0)
-        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
-        else
-        c2p1x1_4_c5_bm_word(320, 190, 0, 32, chunkyBuffer+10240, currentBitmap);
+        c2p1x1_4_c5_bm_word(320, 256-48, 0, 0, chunkyBuffer, currentBitmap);
 
 /*
         for (y = 0;y<128;y+=1) {
@@ -654,11 +440,10 @@ void execute() {
         luaL_loadstring(L, "c2p(0,0,320,256)");
         lua_call(L, 0, 0);
 */
-
+        et = getMilliseconds();
 
     	frame++;
     }
-	printf("loppu tuli:%lu\n", getMilliseconds());
 }
 
 BOOL initScreen(struct BitMap **b, struct Screen **s)
