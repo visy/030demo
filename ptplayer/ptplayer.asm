@@ -173,6 +173,14 @@ n_sizeof	rs.b	0
 	endc
 
 
+;unsigned long ASM mt_get_vbr(void);
+	xdef	mt_get_vbr
+	xdef	_mt_get_vbr
+mt_get_vbr:
+_mt_get_vbr:
+	movec	vbr,d0
+	rts
+; end lich king hack
 
 ;---------------------------------------------------------------------------
 	xdef	_mt_install_cia

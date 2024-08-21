@@ -13,6 +13,10 @@
 #include "noitapic.h"
 #include "cpic.h"
 
+#include "ptplayer/ptplayer.h"
+
+extern struct Custom custom;
+
 // kalms: c2p for 320x256
 extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
 
@@ -175,8 +179,34 @@ static int l_c2p (lua_State *LL) {
   return 1;
 }
 
+extern ULONG mt_get_vbr(void);
+
+struct ExecBase     *SysBase;
+
+static ULONG App_GetVBR(void)
+{
+    // VBR is 0 on 68000, supervisor register on 68010+.
+    ULONG   vbr = 0;
+    LONG    userstack;
+
+    if (SysBase->AttnFlags & (1U << AFB_68010))
+    {
+        // enter supervisor mode and get user stack
+        userstack = SuperState();
+
+        vbr = mt_get_vbr();     
+
+        // restore user stack
+        UserState((char*)userstack);
+    }
+
+    return vbr;
+}
+
 int main(void) {
 	int i,ii = 0;
+
+    SysBase = *((struct ExecBase **)4);
 
     for(i=0; i < 256; i++) {
         ymul[i] = i * 320;
@@ -227,6 +257,7 @@ int main(void) {
     //LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
     startup();
+    mt_install_cia(&custom, App_GetVBR(), 1);
 
     execute();
 
