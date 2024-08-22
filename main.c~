@@ -13,6 +13,17 @@
 #include "noitapic.h"
 #include "cpic.h"
 
+#include "ptplayer/ptplayer.h"
+
+extern struct Custom custom;
+
+extern ULONG mt_get_vbr(void);
+
+struct ExecBase     *SysBase;
+
+#define MOD_SIZE    20406
+UBYTE* moddata;
+
 // kalms: c2p for 320x256
 extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
 
@@ -175,8 +186,32 @@ static int l_c2p (lua_State *LL) {
   return 1;
 }
 
+static ULONG App_GetVBR(void)
+{
+    // VBR is 0 on 68000, supervisor register on 68010+.
+    ULONG   vbr = 0;
+    LONG    userstack;
+
+    if (SysBase->AttnFlags & (1U << AFB_68010))
+    {
+        // enter supervisor mode and get user stack
+        userstack = SuperState();
+
+        vbr = mt_get_vbr();     
+
+        // restore user stack
+        UserState((char*)userstack);
+    }
+
+    return vbr;
+}
+
 int main(void) {
+    UWORD oldDMA;
 	int i,ii = 0;
+    BPTR file_ptr;
+
+    SysBase = *((struct ExecBase **)4);
 
     for(i=0; i < 256; i++) {
         ymul[i] = i * 320;
@@ -190,7 +225,13 @@ int main(void) {
         }
     }
     
-
+    for (ii=0;ii<256;ii++) {
+        for (i=0;i<256;i++) {
+            if (*((UBYTE*)cpic2 + (ii<<8)+i) == 0x00) {
+                *((UBYTE*)cpic2 + (ii<<8)+i) = 0x03;
+            }
+        }
+    }
 
     L = luaL_newstate();
     if(L == NULL) {
@@ -226,10 +267,46 @@ int main(void) {
     // set 32 color palette
     //LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
+    moddata = (UBYTE*)AllocVec(MOD_SIZE * sizeof(UBYTE), MEMF_CHIP);
+
+    if ((file_ptr = Open("song1.mod", MODE_OLDFILE)))
+    {
+        Read(file_ptr, moddata, MOD_SIZE);
+        Close(file_ptr);
+    }
+
+    mt_install_cia(&custom, App_GetVBR(), 1);
+    mt_init(&custom, moddata, NULL, 0);
+    mt_mastervol(&custom, 0x40);
+    mt_Enable = 1;
+
     startup();
 
     execute();
 
+
+    mt_mastervol(&custom, 0);
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+
+    mt_Enable = 0;
+    mt_end(&custom);
+    mt_remove_cia(&custom);
+
+    FreeVec(moddata);
     FreeVec(chunkyBuffer);
     FreeVec(currentPal);
 
@@ -313,6 +390,7 @@ void execute() {
     UBYTE drawcolor2;
 
     int xoff = 0;
+    UBYTE lh = 0;
     UBYTE tx,ty,zs = 0;
     UBYTE dt,dta = 0;
     ScreenToFront(currentScreen);
@@ -320,7 +398,7 @@ void execute() {
     // chunky buffer objects are converted to planar
 	printf("alku\n");
     drawcolor = 10;
-    fillrect(0,0,320,64);
+    fillrect(0,0,320,94);
 
     while (!mouseCiaStatus()) {
         dt = (et-st)>>5;
@@ -332,27 +410,97 @@ void execute() {
         off2 = sine[(64+(dta<<3))&0xff]>>5;
         off3 = sine[(dta<<3)&0xff]>>5;
 
-        memset(chunkyBuffer+10240,10,17920+5120);
+        for(x=0;x<64;x++)
+        {
+            memset(chunkyBuffer+9920+ymul[x]+20,10,128);
+        }
+
+        memset(chunkyBuffer+320*94, 10, 320*12);
+
         for (z = 46;z > 11;z-=1) {
             
             ty = -z+py;
 
             tomul = ty<<8;
 
-            for(x=0;x<320;x+=2) {
+            for(x=0;x<320;x+=8) {
                 tx = (zmul[x][z >> 1] >> 5) + px;
                 to = tomul+tx;
-                off = (zdiv[(height-(heightmap[to]))-1][z-1]);
-                off=off+off+off+off;
-                off+=64;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
                 drawcolor = *((UBYTE*)cpic2 + to);
                 drawcolor2 = *((UBYTE*)cpic2 + to-1);
                 xoff = ymul[off]+x; 
                 vline(chunkyBuffer+xoff, (drawcolor2 << 8) | drawcolor, ((off+32)>>4)+1);
+
+                tx = (zmul[x + 2][z >> 1] >> 5) + px;
+                to = tomul + tx;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+                drawcolor = *((UBYTE*)cpic2 + to);
+                drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+                xoff = ymul[off] + x + 2;
+                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
+
+                tx = (zmul[x + 4][z >> 1] >> 5) + px;
+                to = tomul + tx;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+                drawcolor = *((UBYTE*)cpic2 + to);
+                drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+                xoff = ymul[off] + x + 4;
+                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
+
+                tx = (zmul[x + 6][z >> 1] >> 5) + px;
+                to = tomul + tx;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+                drawcolor = *((UBYTE*)cpic2 + to);
+                drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+                xoff = ymul[off] + x + 6;
+                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
+
             }
         }
 
 
+        // stretch last row to screen edge
+        z = 11;
+        ty = -z+py;
+        tomul = ty<<8;
+
+        for(x=0;x<320;x+=8) {
+            tx = (zmul[x][z >> 1] >> 5) + px;
+            to = tomul+tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            xoff = ymul[off+2]+x; 
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+            vline(chunkyBuffer+xoff, 0, lh);
+
+            tx = (zmul[x + 2][z >> 1] >> 5) + px;
+            to = tomul + tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            xoff = ymul[off+2] + x + 2;
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+
+            vline(chunkyBuffer + xoff,  0, lh);
+
+            tx = (zmul[x + 4][z >> 1] >> 5) + px;
+            to = tomul + tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            xoff = ymul[off+2] + x + 4;
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+
+            vline(chunkyBuffer + xoff,  0, lh);
+
+            tx = (zmul[x + 6][z >> 1] >> 5) + px;
+            to = tomul + tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            xoff = ymul[off+2] + x + 6;
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+
+            vline(chunkyBuffer + xoff,  0, lh);
+        }
         for (y = 0; y < 128; y++) {
             destPtr = &chunkyBuffer[ymul[y + 26 + off2] + 20 + off3]; // Pre-calculate the destination pointer base
             for (x = 0; x < 128; x++) {
@@ -361,7 +509,7 @@ void execute() {
             }
         }
 
-        c2p1x1_4_c5_bm_word(320, 256-48, 0, 0, chunkyBuffer, currentBitmap);
+        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
 
 /*
         for (y = 0;y<128;y+=1) {
@@ -444,6 +592,7 @@ void execute() {
 
     	frame++;
     }
+
 }
 
 BOOL initScreen(struct BitMap **b, struct Screen **s)
