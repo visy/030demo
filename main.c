@@ -225,7 +225,13 @@ int main(void) {
         }
     }
     
-
+    for (ii=0;ii<256;ii++) {
+        for (i=0;i<256;i++) {
+            if (*((UBYTE*)cpic2 + (ii<<8)+i) == 0x00) {
+                *((UBYTE*)cpic2 + (ii<<8)+i) = 0x03;
+            }
+        }
+    }
 
     L = luaL_newstate();
     if(L == NULL) {
@@ -280,25 +286,24 @@ int main(void) {
 
 
     mt_mastervol(&custom, 0);
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+    WaitTOF();
+
     mt_Enable = 0;
     mt_end(&custom);
-
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-    WaitTOF();
-
     mt_remove_cia(&custom);
 
     FreeVec(moddata);
@@ -385,6 +390,7 @@ void execute() {
     UBYTE drawcolor2;
 
     int xoff = 0;
+    UBYTE lh = 0;
     UBYTE tx,ty,zs = 0;
     UBYTE dt,dta = 0;
     ScreenToFront(currentScreen);
@@ -405,26 +411,98 @@ void execute() {
         off3 = sine[(dta<<3)&0xff]>>5;
 
         memset(chunkyBuffer+10240,10,17920+5120);
-        for (z = 46;z > 11;z-=1) {
+        for (z = 46;z > 12;z-=1) {
             
             ty = -z+py;
 
             tomul = ty<<8;
 
-            for(x=0;x<320;x+=2) {
+            for(x=0;x<320;x+=8) {
                 tx = (zmul[x][z >> 1] >> 5) + px;
                 to = tomul+tx;
-                off = (zdiv[(height-(heightmap[to]))-1][z-1]);
-                off=off+off+off+off;
-                off+=64;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
                 drawcolor = *((UBYTE*)cpic2 + to);
                 drawcolor2 = *((UBYTE*)cpic2 + to-1);
                 xoff = ymul[off]+x; 
                 vline(chunkyBuffer+xoff, (drawcolor2 << 8) | drawcolor, ((off+32)>>4)+1);
+
+                tx = (zmul[x + 2][z >> 1] >> 5) + px;
+                to = tomul + tx;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+                drawcolor = *((UBYTE*)cpic2 + to);
+                drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+                xoff = ymul[off] + x + 2;
+                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
+
+                tx = (zmul[x + 4][z >> 1] >> 5) + px;
+                to = tomul + tx;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+                drawcolor = *((UBYTE*)cpic2 + to);
+                drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+                xoff = ymul[off] + x + 4;
+                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
+
+                tx = (zmul[x + 6][z >> 1] >> 5) + px;
+                to = tomul + tx;
+                off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+                drawcolor = *((UBYTE*)cpic2 + to);
+                drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+                xoff = ymul[off] + x + 6;
+                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
+
             }
         }
 
 
+        // stretch last row to screen edge
+        z = 11;
+        ty = -z+py;
+        tomul = ty<<8;
+
+        for(x=0;x<320;x+=8) {
+            tx = (zmul[x][z >> 1] >> 5) + px;
+            to = tomul+tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            drawcolor = *((UBYTE*)cpic2 + to);
+            drawcolor2 = *((UBYTE*)cpic2 + to-1);
+            xoff = ymul[off]+x; 
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+            vline(chunkyBuffer+xoff, (drawcolor2 << 8) | drawcolor, lh);
+
+            tx = (zmul[x + 2][z >> 1] >> 5) + px;
+            to = tomul + tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            drawcolor = *((UBYTE*)cpic2 + to);
+            drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+            xoff = ymul[off] + x + 2;
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+
+            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, lh);
+
+            tx = (zmul[x + 4][z >> 1] >> 5) + px;
+            to = tomul + tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            drawcolor = *((UBYTE*)cpic2 + to);
+            drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+            xoff = ymul[off] + x + 4;
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+
+            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, lh);
+
+            tx = (zmul[x + 6][z >> 1] >> 5) + px;
+            to = tomul + tx;
+            off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
+            drawcolor = *((UBYTE*)cpic2 + to);
+            drawcolor2 = *((UBYTE*)cpic2 + to - 1);
+            xoff = ymul[off] + x + 6;
+            lh = ((off+32)>>4)+1;
+            lh = 255-lh;
+
+            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, lh);
+        }
         for (y = 0; y < 128; y++) {
             destPtr = &chunkyBuffer[ymul[y + 26 + off2] + 20 + off3]; // Pre-calculate the destination pointer base
             for (x = 0; x < 128; x++) {
@@ -433,7 +511,7 @@ void execute() {
             }
         }
 
-        c2p1x1_4_c5_bm_word(320, 256-48, 0, 0, chunkyBuffer, currentBitmap);
+        c2p1x1_4_c5_bm_word(320, 240, 0, 0, chunkyBuffer, currentBitmap);
 
 /*
         for (y = 0;y<128;y+=1) {
