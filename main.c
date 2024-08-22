@@ -10,7 +10,7 @@
 #define __builtin_expect(x,y)
 
 // gfx data headers
-#include "noitapic.h"
+//#include "noitapic.h"
 
 UBYTE* cpic2;
 UBYTE* chei;
