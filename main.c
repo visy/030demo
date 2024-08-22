@@ -398,7 +398,7 @@ void execute() {
     // chunky buffer objects are converted to planar
 	printf("alku\n");
     drawcolor = 10;
-    fillrect(0,0,320,64);
+    fillrect(0,0,320,94);
 
     while (!mouseCiaStatus()) {
         dt = (et-st)>>5;
@@ -410,8 +410,14 @@ void execute() {
         off2 = sine[(64+(dta<<3))&0xff]>>5;
         off3 = sine[(dta<<3)&0xff]>>5;
 
-        memset(chunkyBuffer+10240,10,17920+5120);
-        for (z = 46;z > 12;z-=1) {
+        for(x=0;x<64;x++)
+        {
+            memset(chunkyBuffer+9920+ymul[x]+20,10,128);
+        }
+
+        memset(chunkyBuffer+320*94, 10, 320*12);
+
+        for (z = 46;z > 11;z-=1) {
             
             ty = -z+py;
 
@@ -463,45 +469,37 @@ void execute() {
             tx = (zmul[x][z >> 1] >> 5) + px;
             to = tomul+tx;
             off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
-            drawcolor = *((UBYTE*)cpic2 + to);
-            drawcolor2 = *((UBYTE*)cpic2 + to-1);
-            xoff = ymul[off]+x; 
+            xoff = ymul[off+2]+x; 
             lh = ((off+32)>>4)+1;
             lh = 255-lh;
-            vline(chunkyBuffer+xoff, (drawcolor2 << 8) | drawcolor, lh);
+            vline(chunkyBuffer+xoff, 0, lh);
 
             tx = (zmul[x + 2][z >> 1] >> 5) + px;
             to = tomul + tx;
             off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
-            drawcolor = *((UBYTE*)cpic2 + to);
-            drawcolor2 = *((UBYTE*)cpic2 + to - 1);
-            xoff = ymul[off] + x + 2;
+            xoff = ymul[off+2] + x + 2;
             lh = ((off+32)>>4)+1;
             lh = 255-lh;
 
-            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, lh);
+            vline(chunkyBuffer + xoff,  0, lh);
 
             tx = (zmul[x + 4][z >> 1] >> 5) + px;
             to = tomul + tx;
             off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
-            drawcolor = *((UBYTE*)cpic2 + to);
-            drawcolor2 = *((UBYTE*)cpic2 + to - 1);
-            xoff = ymul[off] + x + 4;
+            xoff = ymul[off+2] + x + 4;
             lh = ((off+32)>>4)+1;
             lh = 255-lh;
 
-            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, lh);
+            vline(chunkyBuffer + xoff,  0, lh);
 
             tx = (zmul[x + 6][z >> 1] >> 5) + px;
             to = tomul + tx;
             off = (zdiv[(height - heightmap[to]) - 1][z - 1] << 2) + 64;
-            drawcolor = *((UBYTE*)cpic2 + to);
-            drawcolor2 = *((UBYTE*)cpic2 + to - 1);
-            xoff = ymul[off] + x + 6;
+            xoff = ymul[off+2] + x + 6;
             lh = ((off+32)>>4)+1;
             lh = 255-lh;
 
-            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, lh);
+            vline(chunkyBuffer + xoff,  0, lh);
         }
         for (y = 0; y < 128; y++) {
             destPtr = &chunkyBuffer[ymul[y + 26 + off2] + 20 + off3]; // Pre-calculate the destination pointer base
@@ -511,7 +509,7 @@ void execute() {
             }
         }
 
-        c2p1x1_4_c5_bm_word(320, 240, 0, 0, chunkyBuffer, currentBitmap);
+        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
 
 /*
         for (y = 0;y<128;y+=1) {
