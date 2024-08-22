@@ -1,16 +1,27 @@
-
 // adapted from example blog tutorial by Christian Ammann
 
-#include "demo.h"
+#include <clib/timer_protos.h>
+#include <clib/exec_protos.h>
 
+#include "demo.h"
 
 #define LUA_IMPL
 #include "minilua.h"
 
 #define __builtin_expect(x,y)
 
-// gfx data headers
-//#include "noitapic.h"
+#include "ptplayer/ptplayer.h"
+
+typedef void (*DrawFunc)(void);
+
+int scene = 0;
+int oldscene = 0;
+
+ULONG st,et;
+UBYTE dt = 0;
+UWORD dta;
+
+// gfx buffers for allocating from file
 
 UBYTE* cpic2;
 UBYTE* chei;
@@ -23,27 +34,25 @@ UWORD cpicpal[] =
     0x0245,0x0379,0x0abb,0x0bbc,0x0331,0x0130,
 };
 
-
-#include "ptplayer/ptplayer.h"
+UWORD greypal[] = { 0x0000,0x0111,0x0222,0x0333,0x0444,0x0555,0x0666,0x0777,0x0888,0x0999,0x0AAA,0x0BBB,0x0CCC,0x0DDD,0x0EEE,0x0FFF };
 
 extern struct Custom custom;
 
 extern ULONG mt_get_vbr(void);
-
-struct ExecBase     *SysBase;
-
-#define MOD_SIZE    20406
-UBYTE* moddata;
-
 // kalms: c2p for 320x256
 extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
 
 // Lynxx: fast lines
 extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
 
+extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
+extern void vline(void* ChunkyScreen __asm("a0"), int color __asm("d0"), int height __asm("d1"));
+
+struct ExecBase     *SysBase;
+
+UBYTE* moddata;
+
 struct BitMap *mainBitmap1 = NULL;
-
-
 struct Screen *mainScreen1 = NULL;
 struct Screen *my_wbscreen_ptr;
 
@@ -62,6 +71,7 @@ UWORD *currentPal;
 UBYTE *chunkyBuffer;
 
 int frame = 0;
+int totalframes = 0;
 
 UBYTE sine[];
 int finesine[];
@@ -70,13 +80,59 @@ int zmul[512][512];
 int zdiv[512][512];
 int zmod[512][512];
 
-
 int ymul[256] = 
 {
     0
 };
 
 UBYTE drawcolor = 7;
+
+ULONG millis;
+ULONG st;
+
+struct Device* TimerBase;
+static struct IORequest timereq;
+
+lua_State *L;
+
+static struct timeval startTime;
+
+inline int mod(int dividend, int divisor) {
+    int absDividend = 0;
+    int absDivisor = 0;
+    int result = 0;
+    int tempDivisor;
+
+    if (divisor == 0) {
+        // Modulo by zero is undefined
+        return -1; // or handle the error as needed
+    }
+
+    // Get absolute values
+    absDividend = abs(dividend);
+    absDivisor = abs(divisor);
+    result = absDividend;
+
+    // Efficiently subtract divisor by shifting it closer to the dividend
+    while (result >= absDivisor) {
+        tempDivisor = absDivisor;
+
+        // Find the largest multiple of divisor that is less than or equal to result
+        while ((tempDivisor << 1) <= result) {
+            tempDivisor <<= 1;
+        }
+
+        // Subtract that multiple from result
+        result -= tempDivisor;
+    }
+
+    // Adjust result for the original sign of the dividend
+    if (dividend < 0 && result != 0) {
+        result = absDivisor - result;
+    }
+
+    return result;
+}
 
 inline void pixel(int x,int y) {
     // PLOT x,y point on surface
@@ -159,21 +215,119 @@ void fillrect(int x, int y, int x2, int y2) {
     }
 }
 
-#include <clib/timer_protos.h>
-#include <clib/exec_protos.h>
+void aaplot(int x, int y, int alpha) {
+    int index;
+    UBYTE current_color;
+    int blended_color;
 
-struct Device* TimerBase;
-static struct IORequest timereq;
+    if (x >= 0 && x < 320 && y >= 0 && y < 256) {
+        index = (y << 8) + (y << 6) + x;
+        current_color = chunkyBuffer[index];
+        blended_color = current_color + ((15 - current_color) * alpha) / 15;
 
-lua_State *L;
+        if (blended_color > 15) blended_color = 15;
+        if (blended_color < 0) blended_color = 0;
 
-static struct timeval startTime;
+        chunkyBuffer[index] = (UBYTE)blended_color;
+    }
+}
+
+void aaline(int x0, int y0, int x1, int y1, UBYTE color) {
+    int dx = abs(x1 - x0);
+    int dy = abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx - dy;
+    int e2;
+    int alpha_y, alpha_x;
+    int intensity_y, intensity_x;
+
+    while (1) {
+        aaplot(x0, y0, 15); // Full intensity for the main pixel
+
+        if (x0 == x1 && y0 == y1) break;
+
+        e2 = err << 1;
+
+        if (e2 > -dy) {
+            alpha_y = (255 * abs(e2 + dy)) / (2 * dx);
+            intensity_y = 15 - ((alpha_y * 15) / 255);
+            if (intensity_y < 0) intensity_y = 0;
+            if (intensity_y > 15) intensity_y = 15;
+            aaplot(x0, y0 + sy, intensity_y);
+        }
+
+        if (e2 < dx) {
+            alpha_x = (255 * abs(dx - e2)) / (2 * dy);
+            intensity_x = 15 - ((alpha_x * 15) / 255);
+            if (intensity_x < 0) intensity_x = 0;
+            if (intensity_x > 15) intensity_x = 15;
+            aaplot(x0 + sx, y0, intensity_x);
+        }
+
+        if (e2 > -dy) {
+            err -= dy;
+            x0 += sx;
+        }
+
+        if (e2 < dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+void aalinethick(int x0, int y0, int x1, int y1, UBYTE color, int thickness) {
+    int half_thickness = thickness / 2;
+    int i;
+
+    for (i = -half_thickness; i <= half_thickness; i++) {
+        if (abs(x1 - x0) >= abs(y1 - y0)) {
+            aaline(x0, y0 + i, x1, y1 + i, color); // Adjust y for horizontal-ish lines
+        } else {
+            aaline(x0 + i, y0, x1 + i, y1, color); // Adjust x for vertical-ish lines
+        }
+    }
+}
+
+void rotrect(int centerX, int centerY, int width, int height, int angle, UBYTE color) {
+    int halfWidth = width / 2;
+    int halfHeight = height / 2;
+
+    int sinAngle = sine[angle & 0xFF];         // sine value
+    int cosAngle = sine[(angle + 64) & 0xFF];  // cosine is sine shifted by 90 degrees (64 positions)
+    int x0,y0;
+    int x1,y1;
+    int x2,y2;
+    int x3,y3;
+
+    sinAngle = sinAngle - 128;
+    cosAngle = cosAngle - 128;
+
+    x0 = centerX + ((-halfWidth * cosAngle - -halfHeight * sinAngle) >> 7);
+    y0 = centerY + ((-halfWidth * sinAngle + -halfHeight * cosAngle) >> 7);
+
+    x1 = centerX + ((halfWidth * cosAngle - -halfHeight * sinAngle) >> 7);
+    y1 = centerY + ((halfWidth * sinAngle + -halfHeight * cosAngle) >> 7);
+    
+    x2 = centerX + ((halfWidth * cosAngle - halfHeight * sinAngle) >> 7);
+    y2 = centerY + ((halfWidth * sinAngle + halfHeight * cosAngle) >> 7);
+
+    x3 = centerX + ((-halfWidth * cosAngle - halfHeight * sinAngle) >> 7);
+    y3 = centerY + ((-halfWidth * sinAngle + halfHeight * cosAngle) >> 7);
+
+    drawcolor = color;
+    line(x0, y0, x1, y1);
+    line(x1, y1, x2, y2);
+    line(x2, y2, x3, y3);
+    line(x3, y3, x0, y0);
+}
+
  
 void startup() {
     OpenDevice("timer.device", 0, &timereq, 0);
     TimerBase = timereq.io_Device;
-
-  GetSysTime(&startTime);
+    GetSysTime(&startTime);
 }
  
 ULONG getMilliseconds() {
@@ -244,6 +398,8 @@ int main(void) {
     BPTR file_ptr;
     ULONG size;
 
+    // load and initialize everything
+
     SysBase = *((struct ExecBase **)4);
 
     for(i=0; i < 256; i++) {
@@ -285,6 +441,7 @@ int main(void) {
 
     // cpic pal, 16 colors
     currentPal = AllocVec(32 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
+
     CopyMemQuick(cpicpal, currentPal, 32);
     LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
 
@@ -294,9 +451,9 @@ int main(void) {
 
     moddata = LoadFile("esa.mod", MEMF_CHIP);
 
-    flypic = LoadFile("flypic.raw", 0L);
-    chei = LoadFile("chei.raw", 0L);
-    cpic2 = LoadFile("cpic2.raw", 0L);
+    flypic = LoadFile("flypic.raw", MEMF_CHIP);
+    chei = LoadFile("chei.raw", MEMF_CHIP);
+    cpic2 = LoadFile("cpic2.raw", MEMF_CHIP);
     for (ii=0;ii<256;ii++) {
         for (i=0;i<256;i++) {
             if (cpic2[(ii<<8)+i] == 0x00) {
@@ -318,8 +475,14 @@ int main(void) {
 
     startup();
 
-    execute();
+    ScreenToFront(currentScreen);
+    WaitTOF();
 
+    // ready to go to mainloop
+
+    MainLoop();
+
+    // exit routine follows
 
     mt_mastervol(&custom, 0);
     WaitTOF();
@@ -368,52 +531,8 @@ _exit_free_temp_bitmap:
     
 }
 
-
-ULONG millis;
-ULONG st;
-
-extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
-
-extern void vline(void* ChunkyScreen __asm("a0"), int color __asm("d0"), int height __asm("d1"));
-
-inline int mod(int dividend, int divisor) {
-    int absDividend = 0;
-    int absDivisor = 0;
-    int result = 0;
-    int tempDivisor;
-
-    if (divisor == 0) {
-        // Modulo by zero is undefined
-        return -1; // or handle the error as needed
-    }
-
-    // Get absolute values
-    absDividend = abs(dividend);
-    absDivisor = abs(divisor);
-    result = absDividend;
-
-    // Efficiently subtract divisor by shifting it closer to the dividend
-    while (result >= absDivisor) {
-        tempDivisor = absDivisor;
-
-        // Find the largest multiple of divisor that is less than or equal to result
-        while ((tempDivisor << 1) <= result) {
-            tempDivisor <<= 1;
-        }
-
-        // Subtract that multiple from result
-        result -= tempDivisor;
-    }
-
-    // Adjust result for the original sign of the dividend
-    if (dividend < 0 && result != 0) {
-        result = absDivisor - result;
-    }
-
-    return result;
-}
-
-void execute() {
+void HeightMap() 
+{
     int x,y,z;
     int off = 0;
     UBYTE off2,off3;
@@ -423,130 +542,123 @@ void execute() {
     UBYTE bil = 0;
     UBYTE cc;
     UBYTE* destPtr;
-    ULONG st,et;
     UBYTE drawcolor2;
 
     int xoff = 0;
     UBYTE lh = 0;
     UBYTE tx,ty,zs = 0;
-    UBYTE dt,dta = 0;
-    ScreenToFront(currentScreen);
-    WaitTOF();
-    // chunky buffer objects are converted to planar
-	printf("alku\n");
-    drawcolor = 10;
-    fillrect(0,0,320,94);
 
-    while (!mouseCiaStatus()) {
-        dt = (et-st)>>5;
-        st = getMilliseconds();
+    if (frame == 0) {
+        drawcolor = 10;
+        fillrect(0,0,320,94);
 
-        dta = dta + dt;
-        py = -dta;
-        px = -py;
-        off2 = sine[(64+(dta<<3))&0xff]>>5;
-        off3 = sine[(dta<<3)&0xff]>>5;
+        CopyMemQuick(cpicpal, currentPal, 32);
+        LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
+    }
 
-        for(x=0;x<64;x++)
-        {
-            memset(chunkyBuffer+9920+ymul[x]+20,10,128);
-        }
+    py = -dta;
+    px = -py;
+    off2 = sine[(64+(dta<<3))&0xff]>>5;
+    off3 = sine[(dta<<3)&0xff]>>5;
 
-        memset(chunkyBuffer+320*94, 10, 320*12);
+    for(x=0;x<64;x++)
+    {
+        memset(chunkyBuffer+9920+ymul[x]+20,10,128);
+    }
 
-        for (z = 46;z > 11;z-=1) {
-            
-            ty = -z+py;
+    memset(chunkyBuffer+320*94, 10, 320*12);
 
-            tomul = ty<<8;
-
-            for(x=0;x<320;x+=8) {
-                tx = (zmul[x][z >> 1] >> 5) + px;
-                to = tomul+tx;
-                off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-                drawcolor = (cpic2[to]);
-                drawcolor2 = (cpic2 [to-1]);
-                xoff = ymul[off]+x; 
-                vline(chunkyBuffer+xoff, (drawcolor2 << 8) | drawcolor, ((off+32)>>4)+1);
-
-                tx = (zmul[x + 2][z >> 1] >> 5) + px;
-                to = tomul + tx;
-                off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-                drawcolor = (cpic2[to]);
-                drawcolor2 = (cpic2[to-1]);
-                xoff = ymul[off] + x + 2;
-                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
-
-                tx = (zmul[x + 4][z >> 1] >> 5) + px;
-                to = tomul + tx;
-                off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-                drawcolor = (cpic2[to]);
-                drawcolor2 = (cpic2[to-1]);
-                xoff = ymul[off] + x + 4;
-                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
-
-                tx = (zmul[x + 6][z >> 1] >> 5) + px;
-                to = tomul + tx;
-                off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-                drawcolor = (cpic2[to]);
-                drawcolor2 = (cpic2[to-1]);
-                xoff = ymul[off] + x + 6;
-                vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
-
-            }
-        }
-
-
-        // stretch last row to screen edge
-        z = 11;
+    for (z = 46;z > 11;z-=1) {
+        
         ty = -z+py;
+
         tomul = ty<<8;
 
         for(x=0;x<320;x+=8) {
             tx = (zmul[x][z >> 1] >> 5) + px;
             to = tomul+tx;
             off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-            xoff = ymul[off+2]+x; 
-            lh = ((off+32)>>4)+1;
-            lh = 255-lh;
-            vline(chunkyBuffer+xoff, 0, lh);
+            drawcolor = (cpic2[to]);
+            drawcolor2 = (cpic2 [to-1]);
+            xoff = ymul[off]+x; 
+            vline(chunkyBuffer+xoff, (drawcolor2 << 8) | drawcolor, ((off+32)>>4)+1);
 
             tx = (zmul[x + 2][z >> 1] >> 5) + px;
             to = tomul + tx;
             off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-            xoff = ymul[off+2] + x + 2;
-            lh = ((off+32)>>4)+1;
-            lh = 255-lh;
-
-            vline(chunkyBuffer + xoff,  0, lh);
+            drawcolor = (cpic2[to]);
+            drawcolor2 = (cpic2[to-1]);
+            xoff = ymul[off] + x + 2;
+            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
 
             tx = (zmul[x + 4][z >> 1] >> 5) + px;
             to = tomul + tx;
             off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-            xoff = ymul[off+2] + x + 4;
-            lh = ((off+32)>>4)+1;
-            lh = 255-lh;
-
-            vline(chunkyBuffer + xoff,  0, lh);
+            drawcolor = (cpic2[to]);
+            drawcolor2 = (cpic2[to-1]);
+            xoff = ymul[off] + x + 4;
+            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
 
             tx = (zmul[x + 6][z >> 1] >> 5) + px;
             to = tomul + tx;
             off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
-            xoff = ymul[off+2] + x + 6;
-            lh = ((off+32)>>4)+1;
-            lh = 255-lh;
+            drawcolor = (cpic2[to]);
+            drawcolor2 = (cpic2[to-1]);
+            xoff = ymul[off] + x + 6;
+            vline(chunkyBuffer + xoff, (drawcolor2 << 8) | drawcolor, ((off + 32) >> 4) + 1);
 
-            vline(chunkyBuffer + xoff,  0, lh);
         }
-        for (y = 0; y < 128; y++) {
-            destPtr = &chunkyBuffer[ymul[y + 26 + off2] + 20 + off3]; // Pre-calculate the destination pointer base
-            for (x = 0; x < 128; x++) {
-                cc = flypic[(y << 7) + x]; // Access the source pixel
-                destPtr[x] = (cc != 0x0F) ? cc : destPtr[x]; // Use a ternary operator to avoid an explicit if statement
-            }
-        }
+    }
 
-        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
+
+    // stretch last row to screen edge
+    z = 11;
+    ty = -z+py;
+    tomul = ty<<8;
+
+    for(x=0;x<320;x+=8) {
+        tx = (zmul[x][z >> 1] >> 5) + px;
+        to = tomul+tx;
+        off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
+        xoff = ymul[off+2]+x; 
+        lh = ((off+32)>>4)+1;
+        lh = 255-lh;
+        vline(chunkyBuffer+xoff, 0, lh);
+
+        tx = (zmul[x + 2][z >> 1] >> 5) + px;
+        to = tomul + tx;
+        off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
+        xoff = ymul[off+2] + x + 2;
+        lh = ((off+32)>>4)+1;
+        lh = 255-lh;
+
+        vline(chunkyBuffer + xoff,  0, lh);
+
+        tx = (zmul[x + 4][z >> 1] >> 5) + px;
+        to = tomul + tx;
+        off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
+        xoff = ymul[off+2] + x + 4;
+        lh = ((off+32)>>4)+1;
+        lh = 255-lh;
+
+        vline(chunkyBuffer + xoff,  0, lh);
+
+        tx = (zmul[x + 6][z >> 1] >> 5) + px;
+        to = tomul + tx;
+        off = (zdiv[(height - chei[to]) - 1][z - 1] << 2) + 64;
+        xoff = ymul[off+2] + x + 6;
+        lh = ((off+32)>>4)+1;
+        lh = 255-lh;
+
+        vline(chunkyBuffer + xoff,  0, lh);
+    }
+    for (y = 0; y < 128; y++) {
+        destPtr = &chunkyBuffer[ymul[y + 26 + off2] + 20 + off3]; // Pre-calculate the destination pointer base
+        for (x = 0; x < 128; x++) {
+            cc = flypic[(y << 7) + x]; // Access the source pixel
+            destPtr[x] = (cc != 0x0F) ? cc : destPtr[x]; // Use a ternary operator to avoid an explicit if statement
+        }
+    }
 
 
 /*
@@ -556,11 +668,60 @@ void execute() {
         luaL_loadstring(L, "c2p(0,0,320,256)");
         lua_call(L, 0, 0);
 */
+
+}
+
+
+
+void Lines()
+{
+    int centerX = 160;
+    int centerY = 127;
+    int width = 80+(sine[(dta<<1)&0xff]>>2);
+    int height = 80+(sine[(dta<<1)&0xff]>>2);
+    int i = 0;
+    if (frame == 0) 
+    {
+        CopyMemQuick(greypal, currentPal, 32);
+        LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
+        memset(chunkyBuffer,0,320*256);
+    }
+    for(i=frame%4; i < 320<<8; i+=4) {
+        if (chunkyBuffer[i] > 0)
+            chunkyBuffer[i]-=1;
+            chunkyBuffer[i]&=chunkyBuffer[i-1];
+
+    }
+
+    for (i = 0; i < 16; i++)
+        rotrect(centerX, centerY, width-(i<<3), height-(i<<3), (frame+(i<<2))&0xff, 15);
+
+}
+
+DrawFunc DrawFuncs[2] = {HeightMap, Lines};
+
+void MainLoop() {
+    while (!mouseCiaStatus()) {
+        dt = (et-st)>>5;
+        if (dt == 0) dt = 1;
+        st = getMilliseconds();
+        dta = dta + dt;
+
+        scene = (totalframes>>6)%2;
+
+        if (oldscene != scene) {
+            frame = 0;
+        }
+        oldscene = scene;
+
+        DrawFuncs[scene]();
+        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
+
         et = getMilliseconds();
 
     	frame++;
+        totalframes++;
     }
-
 }
 
 BOOL initScreen(struct BitMap **b, struct Screen **s)

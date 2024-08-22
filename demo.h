@@ -51,7 +51,7 @@
 
 
 BOOL initScreen(struct BitMap **bm, struct Screen **s);
-void execute();
+void MainLoop();
 void convertChunkyToBitmap(UBYTE* sourceChunky, struct BitMap *destPlanar);
 void switchScreenData(void);
 
