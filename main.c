@@ -16,6 +16,7 @@ typedef void (*DrawFunc)(void);
 
 int scene = 0;
 int oldscene = 0;
+int ex = 0;
 
 ULONG st,et;
 UBYTE dt = 0;
@@ -37,6 +38,7 @@ UWORD cpicpal[] =
 UWORD greypal[] = { 0x0000,0x0111,0x0222,0x0333,0x0444,0x0555,0x0666,0x0777,0x0888,0x0999,0x0AAA,0x0BBB,0x0CCC,0x0DDD,0x0EEE,0x0FFF };
 
 extern struct Custom custom;
+extern struct CIA ciaa;
 
 extern ULONG mt_get_vbr(void);
 // kalms: c2p for 320x256
@@ -423,6 +425,8 @@ int main(void) {
     lua_pushcfunction(L, l_c2p);
     lua_setglobal(L, "c2p");
 
+    ReloadLua();
+
     // hide mouse
     emptyPointer = AllocVec(22 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
     my_wbscreen_ptr = LockPubScreen("Workbench");
@@ -519,12 +523,11 @@ int main(void) {
     FreeBitMap(mainBitmap1);
 _exit_free_temp_bitmap:
     // restore mouse
-/*
     my_wbscreen_ptr = LockPubScreen("Workbench");
     ClearPointer(my_wbscreen_ptr->FirstWindow);
     UnlockPubScreen(NULL, my_wbscreen_ptr);
     FreeVec(emptyPointer);
-*/
+
     lua_close(L);
 
     exit(RETURN_OK);
@@ -660,15 +663,6 @@ void HeightMap()
         }
     }
 
-
-/*
-        lua_pushinteger(L, frame);
-        lua_setglobal(L, "frame");
-
-        luaL_loadstring(L, "c2p(0,0,320,256)");
-        lua_call(L, 0, 0);
-*/
-
 }
 
 
@@ -700,8 +694,63 @@ void Lines()
 
 DrawFunc DrawFuncs[2] = {HeightMap, Lines};
 
+static volatile UBYTE key_buffer = 0x80;
+int keys()
+{
+    UBYTE keycode = 0;
+    int i, zz = 0;
+    keycode = ~ciaa.ciasdr;
+    ciaa.ciacra |= 0x40;
+    /* wait until 85 us have expired */
+    for(i = 0; i < 256; i++) {zz = zz + 1;}
+    /* switch CIA serial port to input mode */
+    ciaa.ciacra &= ~0x40;
+
+    key_buffer = (keycode >> 1) | (keycode << 7); /* ROR 1 */
+
+    // Q or ESC -> exit
+    if (key_buffer == 0x10 ||key_buffer == 0x45) {
+        key_buffer = 0;
+        return 1;
+    }
+
+    // R: reload
+    if (key_buffer == 0x13) {
+        key_buffer = 0;
+        return 2;
+    }
+
+    key_buffer = 0;
+    return 0;
+}
+
+char *luastr;
+int luainit = 0;
+
+void ReloadLua()
+{
+    if (luainit == 1) {
+        FreeVec(luastr);
+    }
+    WaitTOF();
+    luastr = LoadFile("demo.lua", MEMF_FAST);
+    luainit = 1;
+}
+
 void MainLoop() {
-    while (!mouseCiaStatus()) {
+    while (ex == 0) {
+        if (keys() == 1) {
+            ex = 1;
+        }
+
+        if (keys() == 2) {
+            ReloadLua();
+        }
+
+        if (mouseCiaStatus()) 
+        {
+            ex = 1;
+        }
         dt = (et-st)>>5;
         if (dt == 0) dt = 1;
         st = getMilliseconds();
@@ -715,7 +764,11 @@ void MainLoop() {
         oldscene = scene;
 
         DrawFuncs[scene]();
-        c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
+
+        lua_pushinteger(L, frame);
+        lua_setglobal(L, "frame");
+
+        luaL_dostring(L, luastr);
 
         et = getMilliseconds();
 
