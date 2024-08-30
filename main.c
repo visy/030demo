@@ -28,22 +28,386 @@ UBYTE* cpic2;
 UBYTE* chei;
 UBYTE* flypic;
 
-// 16 color pal
+ULONG custompal[] = {
+    256l << 16 + 0,
+
+    // Convert each 32-bit color to 3 left-justified longwords
+    0x00000000, 0x00000000, 0x00000000,  // 0x00000000 -> Black
+    0x66000000, 0x55000000, 0x33000000,  // 0x00665533 -> (R=0x66, G=0x55, B=0x33)
+    0x66000000, 0x33000000, 0x22000000,  // 0x00663322 -> (R=0x66, G=0x33, B=0x22)
+    0x99000000, 0x77000000, 0x44000000,  // 0x00997744 -> (R=0x99, G=0x77, B=0x44)
+    0xAA000000, 0x88000000, 0x55000000,  // 0x00AA8855 -> (R=0xAA, G=0x88, B=0x55)
+    0x99000000, 0x77000000, 0x66000000,  // 0x00997766 -> (R=0x99, G=0x77, B=0x66)
+    0x88000000, 0x55000000, 0x33000000,  // 0x00885533 -> (R=0x88, G=0x55, B=0x33)
+    0x88000000, 0x55000000, 0x66000000,  // 0x00885566 -> (R=0x88, G=0x55, B=0x66)
+    0xAA000000, 0x88000000, 0x88000000,  // 0x00AA8888 -> (R=0xAA, G=0x88, B=0x88)
+    0x55000000, 0x33000000, 0x22000000,  // 0x00553322 -> (R=0x55, G=0x33, B=0x22)
+    0x33000000, 0x44000000, 0x55000000,  // 0x00334455 -> (R=0x33, G=0x44, B=0x55)
+    0x55000000, 0x77000000, 0x99000000,  // 0x00557799 -> (R=0x55, G=0x77, B=0x99)
+    0xAA000000, 0xBB000000, 0xBB000000,  // 0x00AABBBB -> (R=0xAA, G=0xBB, B=0xBB)
+    0xBB000000, 0xBB000000, 0xCC000000,  // 0x00BBBBCC -> (R=0xBB, G=0xBB, B=0xCC)
+    0x55000000, 0x33000000, 0x11000000,  // 0x00553311 -> (R=0x55, G=0x33, B=0x11)
+    0x22000000, 0x11000000, 0x00000000,   // 0x00221100 -> (R=0x22, G=0x11, B=0x00)
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+    // 16-color grayscale
+    0x00000000, 0x00000000, 0x00000000,  // Black
+    0x11000000, 0x11000000, 0x11000000,  // 0x00111111
+    0x22000000, 0x22000000, 0x22000000,  // 0x00222222
+    0x33000000, 0x33000000, 0x33000000,  // 0x00333333
+    0x44000000, 0x44000000, 0x44000000,  // 0x00444444
+    0x55000000, 0x55000000, 0x55000000,  // 0x00555555
+    0x66000000, 0x66000000, 0x66000000,  // 0x00666666
+    0x77000000, 0x77000000, 0x77000000,  // 0x00777777
+    0x88000000, 0x88000000, 0x88000000,  // 0x00888888
+    0x99000000, 0x99000000, 0x99000000,  // 0x00999999
+    0xAA000000, 0xAA000000, 0xAA000000,  // 0x00AAAAAA
+    0xBB000000, 0xBB000000, 0xBB000000,  // 0x00BBBBBB
+    0xCC000000, 0xCC000000, 0xCC000000,  // 0x00CCCCCC
+    0xDD000000, 0xDD000000, 0xDD000000,  // 0x00DDDDDD
+    0xEE000000, 0xEE000000, 0xEE000000,  // 0x00EEEEEE
+    0xFF000000, 0xFF000000, 0xFF000000,  // 0x00FFFFFF
+
+
+    0 , 0 , 0
+};
+
+// 256 color pal
 UWORD cpicpal[] =
 {
     0x0000,0x0453,0x0432,0x0764,0x0875,0x0776,0x0573,0x0556,0x0688,0x0362,
     0x0245,0x0379,0x0abb,0x0bbc,0x0331,0x0130,
-};
+    // 16-color grayscale (like your example)
+    0x0000, 0x0111, 0x0222, 0x0333, 0x0444, 0x0555, 0x0666, 0x0777, 
+    0x0888, 0x0999, 0x0AAA, 0x0BBB, 0x0CCC, 0x0DDD, 0x0EEE, 0x0FFF,
 
-UWORD greypal[] = { 0x0000,0x0111,0x0222,0x0333,0x0444,0x0555,0x0666,0x0777,0x0888,0x0999,0x0AAA,0x0BBB,0x0CCC,0x0DDD,0x0EEE,0x0FFF };
+    // 16-color red gradient
+    0x0000, 0x1000, 0x2000, 0x3000, 0x4000, 0x5000, 0x6000, 0x7000, 
+    0x8000, 0x9000, 0xA000, 0xB000, 0xC000, 0xD000, 0xE000, 0xF000,
+
+    // 16-color green gradient
+    0x0000, 0x0100, 0x0200, 0x0300, 0x0400, 0x0500, 0x0600, 0x0700, 
+    0x0800, 0x0900, 0x0A00, 0x0B00, 0x0C00, 0x0D00, 0x0E00, 0x0F00,
+
+    // 16-color blue gradient
+    0x0000, 0x0010, 0x0020, 0x0030, 0x0040, 0x0050, 0x0060, 0x0070, 
+    0x0080, 0x0090, 0x00A0, 0x00B0, 0x00C0, 0x00D0, 0x00E0, 0x00F0,
+
+    // 16-color sunset palette
+    0x1000, 0x3100, 0x5200, 0x7400, 0x9500, 0xB600, 0xD700, 0xF800,
+    0xF820, 0xFA40, 0xFC60, 0xFE80, 0xFFA0, 0xFFC0, 0xFFE0, 0xFFF0,
+
+    // 16-color earth tones
+    0x2000, 0x3100, 0x4220, 0x5330, 0x6440, 0x7550, 0x8660, 0x9770, 
+    0xA880, 0xB990, 0xCAA0, 0xDBB0, 0xECC0, 0xFDD0, 0xFFEA, 0xFFFA,
+
+    // 16-color ocean blues
+    0x0010, 0x0020, 0x0030, 0x0040, 0x0050, 0x0060, 0x0070, 0x1080, 
+    0x2090, 0x30A0, 0x40B0, 0x50C0, 0x60D0, 0x70E0, 0x80F0, 0x90FF,
+
+    // 16-color purple-pink gradient
+    0x1000, 0x1100, 0x2200, 0x3300, 0x4400, 0x5500, 0x6600, 0x7700, 
+    0x8800, 0x9900, 0xAA00, 0xBB00, 0xCC00, 0xDD00, 0xEE00, 0xFF00,
+
+        0x0000, 0x0111, 0x0222, 0x0333, 0x0444, 0x0555, 0x0666, 0x0777, 
+    0x0888, 0x0999, 0x0AAA, 0x0BBB, 0x0CCC, 0x0DDD, 0x0EEE, 0x0FFF,
+
+    // 16-color red gradient
+    0x0000, 0x1000, 0x2000, 0x3000, 0x4000, 0x5000, 0x6000, 0x7000, 
+    0x8000, 0x9000, 0xA000, 0xB000, 0xC000, 0xD000, 0xE000, 0xF000,
+
+    // 16-color green gradient
+    0x0000, 0x0100, 0x0200, 0x0300, 0x0400, 0x0500, 0x0600, 0x0700, 
+    0x0800, 0x0900, 0x0A00, 0x0B00, 0x0C00, 0x0D00, 0x0E00, 0x0F00,
+
+    // 16-color blue gradient
+    0x0000, 0x0010, 0x0020, 0x0030, 0x0040, 0x0050, 0x0060, 0x0070, 
+    0x0080, 0x0090, 0x00A0, 0x00B0, 0x00C0, 0x00D0, 0x00E0, 0x00F0,
+
+    // 16-color sunset palette
+    0x1000, 0x3100, 0x5200, 0x7400, 0x9500, 0xB600, 0xD700, 0xF800,
+    0xF820, 0xFA40, 0xFC60, 0xFE80, 0xFFA0, 0xFFC0, 0xFFE0, 0xFFF0,
+
+    // 16-color earth tones
+    0x2000, 0x3100, 0x4220, 0x5330, 0x6440, 0x7550, 0x8660, 0x9770, 
+    0xA880, 0xB990, 0xCAA0, 0xDBB0, 0xECC0, 0xFDD0, 0xFFEA, 0xFFFA,
+
+    // 16-color ocean blues
+    0x0010, 0x0020, 0x0030, 0x0040, 0x0050, 0x0060, 0x0070, 0x1080, 
+    0x2090, 0x30A0, 0x40B0, 0x50C0, 0x60D0, 0x70E0, 0x80F0, 0x90FF,
+
+    // 16-color purple-pink gradient
+    0x1000, 0x1100, 0x2200, 0x3300, 0x4400, 0x5500, 0x6600, 0x7700, 
+    0x8800, 0x9900, 0xAA00, 0xBB00, 0xCC00, 0xDD00, 0xEE00, 0xFF00   
+};
 
 extern struct Custom custom;
 extern struct CIA ciaa;
 
 extern ULONG mt_get_vbr(void);
-// kalms: c2p for 320x256
+// kalms: c2p for 320x256,160x256 etc.
 extern void c2p1x1_4_c5_bm_word(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
 extern void c2p2x1_4_c5_bm(int chunkyx __asm("d0"), int chunkyy __asm("d1"), int offsx __asm("d2"), int offsy __asm("d3"), void* c2pscreen __asm("a0"), struct BitMap* bitmap __asm("a1"));
+
+extern void c2p2x1_8_c5_030_init(WORD chunkyx __asm("d0") ,
+                                       WORD chunkyy __asm("d1") ,
+                                       WORD scroffsx __asm("d2") ,
+                                       WORD scroffsy __asm("d3") ,
+                                       WORD rowlen __asm("d4") ,
+                                       LONG bplsize __asm("d5") );
+
+extern void c2p2x1_8_c5_030(void* c2pscreen __asm("a0"), void* bitplanes __asm("a1"));
 
 // Lynxx: fast lines
 extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
@@ -68,7 +432,7 @@ struct BitMap *currentBitmap = NULL;
 struct Screen *currentScreen = NULL;
 
 // current active palette
-UWORD *currentPal;
+ULONG *currentPal;
 
 // chunky buffer for pixels
 UBYTE *chunkyBuffer;
@@ -293,6 +657,122 @@ void aalinethick(int x0, int y0, int x1, int y1, UBYTE color, int thickness) {
     }
 }
 
+#define MAP_WIDTH  16
+#define MAP_HEIGHT 16
+#define FOV 64 // 90 degrees FOV
+#define SCREEN_WIDTH 160
+#define SCREEN_HEIGHT 256
+#define FIXED_POINT_SHIFT 8
+
+UBYTE world_map[MAP_WIDTH][MAP_HEIGHT] = {
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,
+    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+};
+
+typedef struct {
+    UWORD x; // 8-bit fixed-point numbers (where 1.0 == 256)
+    UWORD y;
+    UBYTE angle;
+} Player;
+
+inline UBYTE fast_sin(UBYTE angle) {
+    return sine[angle & 0xff];
+}
+
+inline UBYTE fast_cos(UBYTE angle) {
+    return sine[(angle + 64) & 0xff];
+}
+
+void rayline(int column, UWORD distance) {
+    UBYTE line_height = SCREEN_HEIGHT / distance;
+    int start,end;
+
+    // Calculate start and end points for the line
+    start = (SCREEN_HEIGHT / 2) - (line_height / 2);
+    end = (SCREEN_HEIGHT / 2) + (line_height / 2);
+
+    // Clamp the start and end to screen boundaries
+    if (start < 0) start = 0;
+    if (end >= SCREEN_HEIGHT) end = SCREEN_HEIGHT - 1;
+
+    vline(chunkyBuffer+ymul[start]+column, (15<<8)|15, end-start);
+}
+
+void ray(Player *player, int column) {
+    UBYTE ray_angle = (player->angle - (FOV / 2)) + ((FOV * column) / SCREEN_WIDTH);
+
+
+    // Get the direction of the ray using sine and cosine, converting the table values to signed
+    int step_x = sine[(ray_angle + 64)&0xff] - 128; // Fast cos
+    int step_y = sine[ray_angle&0xff] - 128;      // Fast sin
+    
+    int ray_x = player->x;
+    int ray_y = player->y;
+    int delta_x,delta_y;
+    UBYTE distance,map_x,map_y;
+
+    while (1) {
+        map_x = ray_x / 16;  // Convert ray position to map cell position (dividing by 16)
+        map_y = ray_y / 16;
+
+        if (map_x >= MAP_WIDTH || map_y >= MAP_HEIGHT) {
+            break; // Ray is out of map bounds
+        }
+
+        if (world_map[map_x][map_y] == 1) {
+            // Calculate the distance to the wall using corrected delta values
+            delta_x = (ray_x - player->x)>>4;
+            delta_y = (ray_y - player->y)>>4;
+
+            // Use the Pythagorean approximation to calculate distance
+            distance = (UBYTE) sqrt((delta_x * delta_x) + (delta_y * delta_y));
+
+            rayline(column, distance);
+            break;
+        }
+
+        // Move the ray forward
+        ray_x += step_x;
+        ray_y += step_y;
+    }
+}
+
+void Raycast()
+{
+    Player player;
+    int column;
+
+    if (frame == 0) 
+    {
+        memset(chunkyBuffer,0,160*256);
+    }
+
+    memset(chunkyBuffer,1,160*256);
+
+    player.x = 128; // Start near the middle of a 256x256 grid
+    player.y = 128;
+    player.angle = totalframes;
+
+    for (column = 0; column < 160; column++) {
+        vline(chunkyBuffer+column,16+((column%16 << 8)) | 16+(column % 16), 32);
+        ray(&player, column);
+    }
+}
+
 void rotrect(int centerX, int centerY, int width, int height, int angle, UBYTE color) {
     int halfWidth = width>>1;
     int halfHeight = height>>1;
@@ -319,7 +799,7 @@ void rotrect(int centerX, int centerY, int width, int height, int angle, UBYTE c
     x3 = centerX + ((-halfWidth * cosAngle - halfHeight * sinAngle) >> 8);
     y3 = centerY + ((-halfWidth * sinAngle + halfHeight * cosAngle) >> 7);
 
-    drawcolor = color;
+    drawcolor = 16+color;
     line(x0, y0, x1, y1);
     line(x1, y1, x2, y2);
     line(x2, y2, x3, y3);
@@ -399,7 +879,7 @@ UBYTE* LoadFile(const char* filename, ULONG mem_type)
 
 int main(void) {
     UWORD oldDMA;
-	int i,ii = 0;
+    int i,ii = 0;
     BPTR file_ptr;
     ULONG size;
 
@@ -439,22 +919,17 @@ int main(void) {
     if (!initScreen(&mainBitmap1, &mainScreen1)) {
         goto _exit_free_temp_bitmap;
     }
+
     bufferSelector = TRUE;
     currentScreen = mainScreen1;
     currentBitmap = mainBitmap1;
 
+    c2p2x1_8_c5_030_init(160,256,0,0,320/8,(LONG)currentBitmap->BytesPerRow);
+
     chunkyBuffer = AllocVec(160 * 256 * sizeof(UBYTE), MEMF_FAST | MEMF_CLEAR);
 //    CopyMemQuick(noitapic, chunkyBuffer, 320*256);
 
-    // cpic pal, 16 colors
-    currentPal = AllocVec(32 * sizeof(UWORD), MEMF_FAST | MEMF_CLEAR);
-
-    CopyMemQuick(cpicpal, currentPal, 32);
-    LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
-
-    // CopyMemQuick(noitapal, currentPal, 32);
-    // set 32 color palette
-    //LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
+    LoadRGB32(&(mainScreen1->ViewPort), custompal);
 
     moddata = LoadFile("esa.mod", MEMF_CHIP);
 
@@ -557,9 +1032,6 @@ void HeightMap()
     if (frame == 0) {
         drawcolor = 10;
         fillrect(0,0,160,94);
-
-        CopyMemQuick(cpicpal, currentPal, 32);
-        LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
     }
 
     py = -dta;
@@ -637,8 +1109,6 @@ void Lines()
     int i = 0;
     if (frame == 0) 
     {
-        CopyMemQuick(greypal, currentPal, 32);
-        LoadRGB4(&(mainScreen1->ViewPort), currentPal, 32);
         memset(chunkyBuffer,0,160*256);
     }
     for(i=frame%4; i < 160<<8; i+=4) {
@@ -653,7 +1123,44 @@ void Lines()
 
 }
 
-DrawFunc DrawFuncs[2] = {HeightMap, Lines};
+int sgn(int x) {
+    return (x > 0) - (x < 0);
+}
+
+int abs(int x) {
+    return (x < 0) ? -x : x;
+}
+
+void Feedbakker() {
+    int rs = 32;
+    int x, y;
+    if (frame == 0) 
+    {
+        memset(chunkyBuffer,0,160*256);
+
+    }
+
+    rs = rs + (fast_sin(dta)>>4);
+    drawcolor = 20+((dta>>1)%4);
+    rect(80-16,128-16,80+16,128+16);
+
+    for (y = 256+frame%2; y >= 1; y -= 2) {
+        for (x = 80 - 2; x >= 1; x--) {
+            UBYTE c = chunkyBuffer[ymul[y]+x+(fast_cos(dta+x)>>4)];
+            int xx = x - 80;
+            int yy = y - 128;
+            int xo = sgn(xx);
+            int yo = sgn(yy);
+
+            // Set the new pixels
+            chunkyBuffer[ymul[y+yo]+x + xo] = (c*3)%32;
+            chunkyBuffer[ymul[y+yo]+(160-x + xo)] = (c*3)%32;
+        }
+    }
+
+}
+
+DrawFunc DrawFuncs[4] = {HeightMap, Lines, Raycast, Feedbakker};
 
 static volatile UBYTE key_buffer = 0x80;
 int keys()
@@ -717,17 +1224,17 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
-        scene = (totalframes>>8)%2;
+        scene = (totalframes>>8)%4;
 
         if (oldscene != scene) {
             frame = 0;
         }
+
         oldscene = scene;
 
         DrawFuncs[scene]();
 
-        //c2p1x1_4_c5_bm_word(320, 256, 0, 0, chunkyBuffer, currentBitmap);
-        c2p2x1_4_c5_bm(160, 256, 0, 0, chunkyBuffer, currentBitmap);
+        c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
 
 /*
         lua_pushinteger(L, frame);
@@ -737,7 +1244,7 @@ void MainLoop() {
 */
         et = getMilliseconds();
 
-    	frame++;
+        frame++;
         totalframes++;
     }
 }
@@ -746,7 +1253,7 @@ BOOL initScreen(struct BitMap **b, struct Screen **s)
 {
     // load onscreen bitmap which will be shown on screen
     *b = AllocBitMap(320, 256,
-                     4, BMF_CLEAR,
+                     8, BMF_CLEAR|BMF_DISPLAYABLE,
                      NULL);
     if (!*b) {
         printf("Error: Could not allocate memory for screen bitmap\n");
@@ -756,7 +1263,7 @@ BOOL initScreen(struct BitMap **b, struct Screen **s)
     // create one screen which contains the demo logo
     *s = createScreen(*b, TRUE, 0, 0,
                       320, 256,
-                      4, NULL);
+                      8, NULL);
     if (!*s) {
         printf("Error: Could not allocate memory for logo screen\n");
         goto __exit_init_bitmap;
