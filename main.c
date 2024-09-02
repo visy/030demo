@@ -657,119 +657,218 @@ void aalinethick(int x0, int y0, int x1, int y1, UBYTE color, int thickness) {
     }
 }
 
+
+int px = 4;
+int py = 2;
+int pdir = 1; // up, down, left, right
+
 #define MAP_WIDTH  16
 #define MAP_HEIGHT 16
-#define FOV 64 // 90 degrees FOV
+#define FOV 20.0f
 #define SCREEN_WIDTH 160
 #define SCREEN_HEIGHT 256
-#define FIXED_POINT_SHIFT 8
+#define MAX_DEPTH 16
+#define SCALE_FACTOR_SHIFT 10  // 1024 is 2^10
 
-UBYTE world_map[MAP_WIDTH][MAP_HEIGHT] = {
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
-    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,
-    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
-    1,0,0,1,1,0,0,0,0,0,0,0,1,1,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,
-    1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+UBYTE world_map[MAP_HEIGHT][MAP_WIDTH] = {
+    {1,1,2,2,2,2,1,1,1,1,1,1,1,1,1,1},
+    {4,0,2,0,0,2,0,0,0,0,6,0,0,6,0,1},
+    {1,0,5,0,0,8,0,0,0,0,6,0,0,6,0,1},
+    {4,0,2,0,0,2,0,0,0,0,6,0,0,6,0,1},
+    {1,0,2,0,0,2,0,0,0,0,5,0,0,5,0,1},
+    {4,0,2,0,0,2,0,0,0,0,5,0,0,5,0,1},
+    {1,0,2,0,0,2,2,2,2,2,5,0,0,5,0,1},
+    {4,0,2,0,0,0,0,0,0,0,0,0,0,5,0,1},
+    {1,0,5,0,0,0,0,0,0,0,0,0,0,5,0,1},
+    {4,0,2,2,2,2,2,2,2,5,5,0,0,6,0,1},
+    {1,0,0,0,0,0,0,0,0,0,6,0,0,6,0,1},
+    {4,0,0,0,0,0,7,6,7,6,7,0,0,6,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,6,0,1},
+    {4,0,0,0,0,0,0,0,0,0,0,0,0,6,0,1},
+    {1,0,0,0,0,0,7,6,7,6,7,6,7,6,0,1},
+    {4,1,4,1,4,1,1,1,1,1,1,1,1,1,1,1},
 };
 
-typedef struct {
-    UWORD x; // 8-bit fixed-point numbers (where 1.0 == 256)
-    UWORD y;
-    UBYTE angle;
-} Player;
 
-inline UBYTE fast_sin(UBYTE angle) {
-    return sine[angle & 0xff];
+int **lookup_tables[133];
+
+float mysin(float x) {
+    float term = x;  // First term in the series
+    float sine = term;
+
+    // Calculate the next terms in the series
+    term *= -x * x / (2.0f * 3.0f);  // term2: -x^3/3!
+    sine += term;
+
+    term *= -x * x / (4.0f * 5.0f);  // term3: +x^5/5!
+    sine += term;
+
+    term *= -x * x / (6.0f * 7.0f);  // term4: -x^7/7!
+    sine += term;
+
+    term *= -x * x / (8.0f * 9.0f);  // term5: +x^9/9!
+    sine += term;
+
+    return sine;
 }
 
-inline UBYTE fast_cos(UBYTE angle) {
-    return sine[(angle + 64) & 0xff];
+// Function to calculate cosine approximation
+float mycos(float x) {
+    float term = 1.0f;  // First term in the series
+    float cosine = term;
+
+    // Calculate the next terms in the series
+    term *= -x * x / (1.0f * 2.0f);  // term2: -x^2/2!
+    cosine += term;
+
+    term *= -x * x / (3.0f * 4.0f);  // term3: +x^4/4!
+    cosine += term;
+
+    term *= -x * x / (5.0f * 6.0f);  // term4: -x^6/6!
+    cosine += term;
+
+    term *= -x * x / (7.0f * 8.0f);  // term5: +x^8/8!
+    cosine += term;
+
+    return cosine;
 }
 
-void rayline(int column, UWORD distance) {
-    UBYTE line_height = SCREEN_HEIGHT / distance;
-    int start,end;
-
-    // Calculate start and end points for the line
-    start = (SCREEN_HEIGHT / 2) - (line_height / 2);
-    end = (SCREEN_HEIGHT / 2) + (line_height / 2);
-
-    // Clamp the start and end to screen boundaries
-    if (start < 0) start = 0;
-    if (end >= SCREEN_HEIGHT) end = SCREEN_HEIGHT - 1;
-
-    vline(chunkyBuffer+ymul[start]+column, (15<<8)|15, end-start);
-}
-
-void ray(Player *player, int column) {
-    UBYTE ray_angle = (player->angle - (FOV / 2)) + ((FOV * column) / SCREEN_WIDTH);
+struct Library *MathIeeeDoubBasBase;
+struct Library *MathIeeeDoubTransBase;
+struct Library *MathIeeeSingBasBase;
+struct Library *MathIeeeSingTransBase;
+struct Library *UtilityBase;
 
 
-    // Get the direction of the ray using sine and cosine, converting the table values to signed
-    int step_x = sine[(ray_angle + 64)&0xff] - 128; // Fast cos
-    int step_y = sine[ray_angle&0xff] - 128;      // Fast sin
-    
-    int ray_x = player->x;
-    int ray_y = player->y;
-    int delta_x,delta_y;
-    UBYTE distance,map_x,map_y;
+void init_lookup_tables() {
+    int i, ii;
+    int pdir_index, ray;
+    float pd;
+    int ray_x=0, ray_y=0;
+    float ray_angle = 0.0;
+    float flr_ray_x=0.0, flr_ray_y=0.0;
+    float cos_val=0.0, sin_val=0.0;
+    float ray_angle_step = FOV / 160.0;
 
-    while (1) {
-        map_x = ray_x / 16;  // Convert ray position to map cell position (dividing by 16)
-        map_y = ray_y / 16;
-
-        if (map_x >= MAP_WIDTH || map_y >= MAP_HEIGHT) {
-            break; // Ray is out of map bounds
-        }
-
-        if (world_map[map_x][map_y] == 1) {
-            // Calculate the distance to the wall using corrected delta values
-            delta_x = (ray_x - player->x)>>4;
-            delta_y = (ray_y - player->y)>>4;
-
-            // Use the Pythagorean approximation to calculate distance
-            distance = (UBYTE) sqrt((delta_x * delta_x) + (delta_y * delta_y));
-
-            rayline(column, distance);
-            break;
-        }
-
-        // Move the ray forward
-        ray_x += step_x;
-        ray_y += step_y;
+    for(i=0; i < 256; i++) {
+        ymul[i] = i * 160;
     }
+
+    for(ii=0; ii < 512; ii++) {
+        for(i=0; i < 512; i++) {
+            zmod[ii][i] = (ii+1) % (i+1);
+            zmul[ii][i] = (ii-160) * (i);
+            zdiv[ii][i] = (ii+1) / (i+1);
+        }
+    }
+
+    for (pdir_index = 0; pdir_index < 133; ++pdir_index) {
+        lookup_tables[pdir_index] = (int **)AllocVec(SCREEN_WIDTH * sizeof(int *), MEMF_FAST | MEMF_CLEAR);
+        if (lookup_tables[pdir_index] == NULL) {
+            printf("Failed to allocate memory for lookup_tables[%d]\n", pdir_index);
+            exit(1); // Handle allocation failure
+        }
+
+        pd = 1.0 * pdir_index;
+        for (ray = 0; ray < SCREEN_WIDTH; ray++) {
+            lookup_tables[pdir_index][ray] = (int *)AllocVec(2 * sizeof(int), MEMF_FAST | MEMF_CLEAR);
+            if (lookup_tables[pdir_index][ray] == NULL) {
+                printf("Failed to allocate memory for lookup_tables[%d][%d]\n", pdir_index, ray);
+                exit(1); // Handle allocation failure
+            }
+
+            ray_angle = ((pd * 42.973f) - (FOV / 2.0f)) + ((float)ray * ray_angle_step);
+            cos_val = ray_angle * (3.1415927f) / 180.0f;
+            sin_val = ray_angle * (3.1415927f) / 180.0f;
+//            flr_ray_x = floor((cos_val) * 128.0f);
+//            flr_ray_y = floor((sin_val) * 128.0f);
+            lookup_tables[pdir_index][ray][0] = ray;
+            lookup_tables[pdir_index][ray][1] = pdir_index;
+        }
+    }
+
 }
 
-void Raycast()
-{
-    Player player;
-    int column;
+int multiply_by_0_1(int value) {
+    return (value >> 3) + (value >> 5);
+}
+
+void Raycast() {
+    int scale_factor = 1 << SCALE_FACTOR_SHIFT;  // 1024, for easy bit shifting
+    int shift_amount = SCALE_FACTOR_SHIFT;       // Number of bits to shift for dividing by scale_factor
+    int test_xd = px * scale_factor;
+    int test_yd = py * scale_factor;
+
+    int ray, ray_x, ray_y, step_x, step_y, test_x, test_y;
+    int distance, hit, col;
+    int map_x, map_y;
+    int scaled_screen_height, line_height, temp_distance, line_start= 0, line_end = 0;
 
     if (frame == 0) 
     {
         memset(chunkyBuffer,0,160*256);
     }
 
-    memset(chunkyBuffer,1,160*256);
+    for (ray = 0; ray < SCREEN_WIDTH; ++ray) {
+        ray_x = lookup_tables[pdir][ray][0];
+        ray_y = lookup_tables[pdir][ray][1];
 
-    player.x = 128; // Start near the middle of a 256x256 grid
-    player.y = 128;
-    player.angle = totalframes;
+        step_x = ray_x;
+        step_y = ray_y;
+        test_x = test_xd;
+        test_y = test_yd;
 
-    for (column = 0; column < 160; column++) {
-        vline(chunkyBuffer+column,16+((column%16 << 8)) | 16+(column % 16), 32);
-        ray(&player, column);
+        distance = 0;
+        hit = 0;
+        col = 0;
+
+        while (hit == 0 && distance < (MAX_DEPTH << 8)) {
+            test_x += step_x;
+            test_y += step_y;
+
+            map_x = test_x >> shift_amount;  // Equivalent to test_x / scale_factor
+            map_y = test_y >> shift_amount;  // Equivalent to test_y / scale_factor
+
+            if (map_x >= 0 && map_x < MAP_WIDTH && map_y >= 0 && map_y < MAP_HEIGHT) {
+                if (world_map[map_y][map_x] > 0) {
+                    hit = 1;
+                    col = world_map[map_y][map_x];
+                }
+            }
+            distance += (scale_factor >> shift_amount);  // Equivalent to 0.1 * scale_factor
+        }
+
+        scaled_screen_height = SCREEN_HEIGHT << 2;  // Pre-multiply by 4 (equivalent to SCREEN_HEIGHT * 4)
+        line_height = 0;
+        temp_distance = distance;
+        shift_amount = 0;
+
+        // Calculate the initial shift amount by left-shifting temp_distance until it exceeds or equals scaled_screen_height
+        while ((temp_distance << 1) <= scaled_screen_height && temp_distance > 0) {
+            temp_distance <<= 1;
+            shift_amount++;
+        }
+
+        // Now, decrease the shift_amount and adjust the line_height accordingly
+        while (shift_amount >= 0) {
+            if (scaled_screen_height >= temp_distance) {
+                scaled_screen_height -= temp_distance;
+                line_height += (1 << shift_amount);
+            }
+            temp_distance >>= 1;  // Halve temp_distance
+            shift_amount--;
+        }
+
+        // Ensure line_height is non-zero to avoid division by zero or other errors
+        if (line_height == 0) {
+            line_height = 1;
+        }
+
+
+        line_start = (SCREEN_HEIGHT >> 1) - (line_height);
+        line_end = (SCREEN_HEIGHT >> 1) + (line_height);
+
+        vline(chunkyBuffer+ymul[line_start]+ray, ((col + 24) << 8) | (col +24), line_end-line_start);
     }
 }
 
@@ -877,6 +976,7 @@ UBYTE* LoadFile(const char* filename, ULONG mem_type)
     return data;
 }
 
+
 int main(void) {
     UWORD oldDMA;
     int i,ii = 0;
@@ -887,17 +987,21 @@ int main(void) {
 
     SysBase = *((struct ExecBase **)4);
 
-    for(i=0; i < 256; i++) {
-        ymul[i] = i * 160;
+    UtilityBase = (struct Library*)OpenLibrary("utility.library",0L);
+    MathIeeeSingBasBase   = (struct Library *) OpenLibrary("mathieeesingbas.library", 0L);
+    MathIeeeSingTransBase   = (struct Library *) OpenLibrary("mathieeesingtrans.library", 0L);
+    MathIeeeDoubBasBase   = (struct Library *) OpenLibrary("mathieeedoubbas.library", 0L);
+    MathIeeeDoubTransBase = (struct Library *) OpenLibrary("mathieeedoubtrans.library", 0L);
+
+    if ((UtilityBase) &&(MathIeeeSingTransBase) && (MathIeeeSingBasBase) && (MathIeeeDoubBasBase) && (MathIeeeDoubTransBase))
+    {
+    }
+    else {
+        Printf("failed to open libraries!!!\n");
+        exit(1);        
     }
 
-    for(ii=0; ii < 512; ii++) {
-        for(i=0; i < 512; i++) {
-            zmod[ii][i] = (ii+1) % (i+1);
-            zmul[ii][i] = (ii-160) * (i);
-            zdiv[ii][i] = (ii+1) / (i+1);
-        }
-    }
+    init_lookup_tables();
 
     L = luaL_newstate();
     if(L == NULL) {
@@ -997,6 +1101,12 @@ int main(void) {
     CloseScreen(mainScreen1);
     WaitTOF();
     CloseDevice(&timereq);
+
+    if (MathIeeeDoubTransBase) { CloseLibrary(MathIeeeDoubTransBase); }
+    if (MathIeeeDoubBasBase)   { CloseLibrary(MathIeeeDoubBasBase); }
+    if (MathIeeeSingBasBase)   { CloseLibrary(MathIeeeSingBasBase); }
+    if (MathIeeeSingTransBase)   { CloseLibrary(MathIeeeSingTransBase); }
+    if (UtilityBase)  { CloseLibrary(UtilityBase); }
 
     FreeBitMap(mainBitmap1);
 _exit_free_temp_bitmap:
@@ -1098,8 +1208,6 @@ void HeightMap()
 
 }
 
-
-
 void Lines()
 {
     int centerX = 80;
@@ -1123,40 +1231,7 @@ void Lines()
 
 }
 
-int sgn(int x) {
-    return (x > 0) - (x < 0);
-}
-
-int abs(int x) {
-    return (x < 0) ? -x : x;
-}
-
 void Feedbakker() {
-    int rs = 32;
-    int x, y;
-    if (frame == 0) 
-    {
-        memset(chunkyBuffer,0,160*256);
-
-    }
-
-    rs = rs + (fast_sin(dta)>>4);
-    drawcolor = 20+((dta>>1)%4);
-    rect(80-16,128-16,80+16,128+16);
-
-    for (y = 256+frame%2; y >= 1; y -= 2) {
-        for (x = 80 - 2; x >= 1; x--) {
-            UBYTE c = chunkyBuffer[ymul[y]+x+(fast_cos(dta+x)>>4)];
-            int xx = x - 80;
-            int yy = y - 128;
-            int xo = sgn(xx);
-            int yo = sgn(yy);
-
-            // Set the new pixels
-            chunkyBuffer[ymul[y+yo]+x + xo] = (c*3)%32;
-            chunkyBuffer[ymul[y+yo]+(160-x + xo)] = (c*3)%32;
-        }
-    }
 
 }
 
@@ -1224,7 +1299,9 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
+
         scene = (totalframes>>8)%4;
+//        scene = 2;
 
         if (oldscene != scene) {
             frame = 0;
