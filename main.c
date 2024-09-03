@@ -414,6 +414,7 @@ extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y
 
 extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
 extern void vline(void* ChunkyScreen __asm("a0"), int color __asm("d0"), int height __asm("d1"));
+extern void vline1(void* ChunkyScreen __asm("a0"), UBYTE color __asm("d0"), int height __asm("d1"));
 
 struct ExecBase     *SysBase;
 
@@ -658,8 +659,8 @@ void aalinethick(int x0, int y0, int x1, int y1, UBYTE color, int thickness) {
 }
 
 
-int ppx = 4;
-int ppy = 2;
+int ppx = 8;
+int ppy = 8;
 int pdir = 1; // up, down, left, right
 
 #define MAP_WIDTH  16
@@ -671,22 +672,22 @@ int pdir = 1; // up, down, left, right
 #define SCALE_FACTOR_SHIFT 10  // 1024 is 2^10
 
 UBYTE world_map[MAP_HEIGHT][MAP_WIDTH] = {
-    {1,1,2,2,2,2,1,1,1,1,1,1,1,1,1,1},
-    {4,0,2,0,0,2,0,0,0,0,6,0,0,6,0,1},
-    {1,0,5,0,0,8,0,0,0,0,6,0,0,6,0,1},
-    {4,0,2,0,0,2,0,0,0,0,6,0,0,6,0,1},
-    {1,0,2,0,0,2,0,0,0,0,5,0,0,5,0,1},
-    {4,0,2,0,0,2,0,0,0,0,5,0,0,5,0,1},
-    {1,0,2,0,0,2,2,2,2,2,5,0,0,5,0,1},
-    {4,0,2,0,0,0,0,0,0,0,0,0,0,5,0,1},
-    {1,0,5,0,0,0,0,0,0,0,0,0,0,5,0,1},
-    {4,0,2,2,2,2,2,2,2,5,5,0,0,6,0,1},
-    {1,0,0,0,0,0,0,0,0,0,6,0,0,6,0,1},
-    {4,0,0,0,0,0,7,6,7,6,7,0,0,6,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,6,0,1},
-    {4,0,0,0,0,0,0,0,0,0,0,0,0,6,0,1},
-    {1,0,0,0,0,0,7,6,7,6,7,6,7,6,0,1},
-    {4,1,4,1,4,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,3,3,3,3,0,0,0,0,0,0,0,0,0,1},
+    {1,0,3,3,3,3,3,0,0,0,0,5,5,0,0,1},
+    {1,0,3,3,3,3,0,0,0,0,0,5,5,0,0,1},
+    {1,0,6,6,6,6,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,6,6,6,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,4,2,4,6,0,0,0,0,0,0,0,0,0,1},
+    {1,0,2,0,2,0,0,0,0,0,2,7,0,0,7,2},
+    {1,0,4,0,0,0,0,0,0,0,7,0,0,0,0,7},
+    {1,0,2,0,2,0,0,0,0,0,2,0,0,0,0,2},
+    {1,0,4,2,4,0,0,0,0,0,7,0,0,0,0,7},
+    {1,0,0,0,0,0,0,0,0,0,2,0,0,0,0,2},
+    {1,0,0,0,0,0,0,0,0,0,7,0,0,0,0,7},
+    {1,1,1,1,1,1,1,1,1,1,7,2,7,2,7,2},
 };
 
 int lookup_tables[133][SCREEN_WIDTH][2] = {
@@ -22262,44 +22263,40 @@ void init_lookup_tables() {
 
 }
 
-
-int multiply_by_0_1(int value) {
-    return (value >> 3) + (value >> 5);
-}
-
 void Raycast() {
-    int ray;
-    int col;
+    UBYTE ray;
+    UBYTE col;
     int test_x, test_y, step_x, step_y;
     int map_x, map_y, distance;
-    int line_start, line_end, line_height;
-    int hei = 0;
-    int hit = 0;
+    UBYTE line_start, line_end, line_height;
+    UBYTE hei = 0;
+    UBYTE hit = 0;
     int ray_x;
     int ray_y;
     int scaled_screen_height = 0;  // Pre-multiply by 4 (equivalent to SCREEN_HEIGHT * 4)
     int temp_distance = 0;
     int shift_amount = 0;
 
-    if (frame % 2 == 0) {
-        pdir++;
-        if (pdir > 133) {
-            pdir = 1;
-        }
+    pdir++;
+    if (pdir > 133) {
+        pdir = 1;
     }
 
-    //if (frame == 0) 
-   // {
-        memset(chunkyBuffer,4,80*256);
-        memset(chunkyBuffer+80*256,1,80*256);
-    //}
+    if (frame == 0) {
+        memset(chunkyBuffer,4,128*160);
+        memset(chunkyBuffer+128*160,1,128*160);
+    } else {
+        memset(chunkyBuffer+32*160,4,(128-32)*160);
+        memset(chunkyBuffer+128*160,1,(128-32)*160);
 
-    for (ray = 0; ray < SCREEN_WIDTH-1; ++ray) {
+    }
+
+    for (ray = 0; ray < SCREEN_WIDTH; ray+=1) {
          ray_x = lookup_tables[pdir - 1][ray][0];
          ray_y = lookup_tables[pdir - 1][ray][1];
 
-        test_x = ppx * 1024;  // Player's position scaled
-        test_y = ppy * 1024;
+        test_x = ppx << 10;  // Player's position scaled
+        test_y = ppy << 10;
         step_x = ray_x;
         step_y = ray_y;
         distance = 0;
@@ -22312,8 +22309,8 @@ void Raycast() {
             map_y = test_y >> 10;
 
             if (map_x >= 0 && map_x < MAP_WIDTH && map_y >= 0 && map_y < MAP_HEIGHT) {
-                if (world_map[map_y][map_x] > 0) {
-                    col = world_map[map_y][map_x];
+                col = world_map[map_y][map_x];
+                if (col > 0) {
                     hit = 1;
                 }
             }
@@ -22346,11 +22343,9 @@ void Raycast() {
             line_start = (SCREEN_HEIGHT >> 1) - (line_height >> 1);
             line_end = (SCREEN_HEIGHT >> 1) + (line_height >> 1);
 
-
             hei = line_end-line_start;
-            hei = abs(hei);
 
-            vline(chunkyBuffer+ymul[line_start]+ray, ((col+16) << 8) | (col+16), hei);
+            vline1(chunkyBuffer+ymul[line_start]+ray, col+20, hei);
         }
     }
 }
@@ -22782,9 +22777,7 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
-
-//        scene = (totalframes>>8)%4;
-        scene = 2;
+        scene = (totalframes>>8)%4;
 
         if (oldscene != scene) {
             frame = 0;
@@ -22804,8 +22797,12 @@ void MainLoop() {
 */
         et = getMilliseconds();
 
+
         frame++;
         totalframes++;
+
+        WaitTOF();
+
     }
 }
 

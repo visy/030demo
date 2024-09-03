@@ -502,6 +502,40 @@ vline:
 
 	rts
 
+	XDEF	_vline1
+	XDEF	vline1
+_vline1:
+vline1:
+
+; a0 = startpos in framebuffer
+; d0.b = color
+; d1.w = height
+	movem.l	d0-d7/a0-a6,-(a7)
+
+	lsr.w	#1,d1 
+	beq.s	.skip1
+	move.b	d0,(a0)
+	lea	160(a0),a0
+.skip1:
+	lsr.w	#1,d1
+	beq.s	.skip2
+	move.b	d0,(a0)
+	move.b	d0,160(a0)
+	lea	320(a0),a0
+.skip2:
+	subq.w	#1,d1
+	bmi.s	.done
+.loop4:
+	move.b	d0,(a0)
+	move.b	d0,160(a0)
+	move.b	d0,320(a0)
+	move.b	d0,480(a0)
+	lea	640(a0),a0
+	dbf	d1,.loop4
+.done:
+	movem.l	(a7)+,d0-d7/a0-a6
+
+	rts
 	XDEF	_c2p2x1_4_c5_bm
 	XDEF	c2p2x1_4_c5_bm
 _c2p2x1_4_c5_bm
