@@ -929,9 +929,12 @@ void Raycast() {
 
             // Initialize variables for span rendering
             y = line_start;
-            while (y < line_end) {
+            while (y <= line_end) {
                 // Get the current color from the texture
                 cc = texture[(((texY >> 8) & 15) << 4) + texX]+16;
+                    if (side == 1) {
+                        cc +=4;
+                    }
 
                 // Start of the color span
                 span_start = y;
@@ -949,6 +952,10 @@ void Raycast() {
                     // Get the next color
                     next_cc = texture[(((texY >> 8) & 15) << 4) + texX]+16;
 
+                    if (side == 1) {
+                        next_cc +=4;
+                    }
+
                     // Check if the color has changed
                     if (next_cc != cc) {
                         break;  // End of the current color span
@@ -956,7 +963,7 @@ void Raycast() {
                 }
 
                 // Calculate the span height
-                span_height = y - span_start;
+                span_height = y - span_start+1;
 
                 // Draw the vertical line span using vline1
                 vline(chunkyBuffer + ymul[span_start] + ray, cc<<8|cc, span_height);
@@ -1392,8 +1399,7 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
-        scene = 2;
-//        scene = (totalframes>>8)%3;
+        scene = (totalframes>>8)%3;
 
         if (oldscene != scene) {
             frame = 0;
