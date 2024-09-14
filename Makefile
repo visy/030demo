@@ -1,7 +1,7 @@
 CC=m68k-amigaos-gcc
 VASM=vasmm68k_mot
-VASMFLAGS=-Faout -devpac -m68020
-CFLAGS = -D__far="" -O3 -s -I. 
+VASMFLAGS=-Faout -devpac -m68030
+CFLAGS = -D__far="" -O3 -fomit-frame-pointer -fstrength-reduce -funroll-loops -m68030 -s -I. 
 LDFLAGS = -noixemul -L. 
 SOURCES=main.c dlfcn.c starlight/graphics_controller.c starlight/utils.c
 OBJECTS=$(SOURCES:.c=.o)
