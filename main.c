@@ -677,20 +677,20 @@ int pdir = 1; // up, down, left, right
 
 UBYTE texture[16 * 16] = 
     {7, 7, 7, 7, 7, 7, 7, 6, 6, 7, 7, 7, 7, 7, 7, 7,
-    7, 1, 1, 1, 1, 1, 6, 6, 5, 5, 1, 1, 1, 1, 1, 7,
-    7, 1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 1, 1, 1, 1, 7,
-    7, 1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 1, 1, 1, 7,
-    7, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 7,
-    7, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 7,
-    7, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7,
+    1, 1, 1, 1, 1, 1, 6, 6, 5, 5, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1,
+    1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1,
+    1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1,
+    1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1,
     6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
     6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
-    7, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 7,
-    7, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 7,
-    7, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 7,
-    7, 1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 1, 1, 1, 7,
-    7, 1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 1, 1, 1, 1, 7,
-    7, 1, 1, 1, 1, 1, 6, 6, 5, 5, 1, 1, 1, 1, 1, 7,
+    1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1,
+    1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1,
+    1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1,
+    1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 6, 6, 5, 5, 1, 1, 1, 1, 1, 1,
     7, 7, 7, 7, 7, 7, 7, 6, 6, 7, 7, 7, 7, 7, 7, 7
 };
 
@@ -768,10 +768,15 @@ void Raycast() {
     UBYTE next_cc;
     int horizon_line;
     int cell_offset_x, cell_offset_y;
+        // Variables for pdir interpolation
+    int pdir_index1, pdir_index2;
+    int ray_x1, ray_x2, ray_y1, ray_y2;
+    int pdir_frac;
+    int line_gap = 16;  // Initial gap between lines
 
     // Update player direction (assuming pdir ranges from 1 to 133)
     pdir++;
-    if (pdir > 133) {
+    if (pdir > 266) {
         pdir = 1;
     }
 
@@ -786,12 +791,38 @@ void Raycast() {
 
             // Fill floor
             memset(chunkyBuffer + ymul[horizon_line], 8, ymul[(SCREEN_HEIGHT - horizon_line)]);
+
+            for (y = horizon_line; y<SCREEN_HEIGHT; y+=line_gap) {
+                memset(chunkyBuffer + ymul[y], 0, SCREEN_WIDTH);
+
+                if (line_gap > 1) {
+                    line_gap -= 1;  // Reduce gap size gradually to create perspective effect
+                }
+            }
     }
 
-    for (ray = 0; ray < SCREEN_WIDTH; ray += 1) {
+    for (ray = 0; ray < SCREEN_WIDTH; ray += 2) {
+        pdir_index1 = (pdir - 1) >> 1;     // Equivalent to (pdir - 1) / 2
+        pdir_frac = (pdir - 1) & 1;        // 0 if even, 1 if odd
+        pdir_index2 = pdir_index1 + 1;
+        if (pdir_index2 >= 133) {
+            pdir_index2 = 0;  // Wrap around
+        }
         // Retrieve precomputed ray directions
-        ray_x = lookup_tables[pdir - 1][ray][0];
-        ray_y = lookup_tables[pdir - 1][ray][1];
+        ray_x1 = lookup_tables[pdir_index1][ray][0];
+        ray_y1 = lookup_tables[pdir_index1][ray][1];
+        ray_x2 = lookup_tables[pdir_index2][ray][0];
+        ray_y2 = lookup_tables[pdir_index2][ray][1];
+
+        if (pdir_frac == 0) {
+            // No interpolation needed
+            ray_x = ray_x1;
+            ray_y = ray_y1;
+        } else {
+            // Interpolate between ray_x1 and ray_x2
+            ray_x = (ray_x1 + ray_x2) >> 1;
+            ray_y = (ray_y1 + ray_y2) >> 1;
+        }
 
         // Initialize variables
         test_x = ppx << 10;  // Player's position scaled
@@ -900,12 +931,7 @@ void Raycast() {
             y = line_start;
             while (y < line_end) {
                 // Get the current color from the texture
-                cc = texture[(((texY >> 8) & 15) << 4) + texX];
-
-                // Optionally adjust color based on side for visual effect
-                if (side == 1) {
-                    cc += 20;  // Darken the color for horizontal walls
-                }
+                cc = texture[(((texY >> 8) & 15) << 4) + texX]+16;
 
                 // Start of the color span
                 span_start = y;
@@ -921,10 +947,7 @@ void Raycast() {
                     }
 
                     // Get the next color
-                    next_cc = texture[(((texY >> 8) & 15) << 4) + texX];
-                    if (side == 1) {
-                        next_cc += 20;
-                    }
+                    next_cc = texture[(((texY >> 8) & 15) << 4) + texX]+16;
 
                     // Check if the color has changed
                     if (next_cc != cc) {
@@ -936,7 +959,7 @@ void Raycast() {
                 span_height = y - span_start;
 
                 // Draw the vertical line span using vline1
-                vline1(chunkyBuffer + ymul[span_start] + ray, cc, span_height);
+                vline(chunkyBuffer + ymul[span_start] + ray, cc<<8|cc, span_height);
             }
         }
     }
