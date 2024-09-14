@@ -766,6 +766,7 @@ void Raycast() {
     int span_texY;
     int span_height;
     UBYTE next_cc;
+    int horizon_line;
     int cell_offset_x, cell_offset_y;
 
     // Update player direction (assuming pdir ranges from 1 to 133)
@@ -778,7 +779,13 @@ void Raycast() {
     if (frame == 0) {
         memset(chunkyBuffer, 4, SCREEN_HEIGHT * SCREEN_WIDTH);
     } else {
-        memset(chunkyBuffer + 32 * SCREEN_WIDTH, 4, (SCREEN_HEIGHT - 32) * SCREEN_WIDTH);
+            horizon_line = SCREEN_HEIGHT >> 1;
+
+            // Fill ceiling
+            memset(chunkyBuffer, 4, ymul[horizon_line]);
+
+            // Fill floor
+            memset(chunkyBuffer + ymul[horizon_line], 8, ymul[(SCREEN_HEIGHT - horizon_line)]);
     }
 
     for (ray = 0; ray < SCREEN_WIDTH; ray += 1) {
