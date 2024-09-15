@@ -1331,8 +1331,187 @@ void Lines()
 
 }
 
-void Feedbakker() {
+#define SHIFT 16                  // Number of fractional bits
+#define ONE (1 << SHIFT)          // Representation of 1.0 in fixed-point
+#define HALF (ONE >> 1)           // Representation of 0.5 in fixed-point
 
+// Time step (Δt) scaled by SHIFT (e.g., Δt = 1/60 ≈ 0.0166667)
+#define DELTA_T 1092      // Approximately 0.0166667 * 2^16 ≈ 1092
+
+// Gravity acceleration scaled by SHIFT (e.g., g = 9.81)
+#define GRAVITY 643634 // Approximately 9.81 * 65536 ≈ 643634
+
+int fixed_mult(int a, int b) {
+    long temp = (long)a * (long)b;
+    return (int)(temp >> SHIFT);
+}
+
+// Fixed-point division
+int fixed_div(int a, int b) {
+    long temp;
+    if (b == 0) {
+        // Handle division by zero as needed
+        return 0;
+    }
+    temp = ((long)a << SHIFT) / b;
+    return (int)temp;
+}
+
+// Fixed-point representation of 0.5
+int fixed_half() {
+    return HALF;
+}
+
+// Fixed-point addition
+int fixed_add(int a, int b) {
+    return a + b;
+}
+
+// Fixed-point subtraction
+int fixed_sub(int a, int b) {
+    return a - b;
+}
+
+typedef struct {
+    int x, y;           // Current position (fixed-point)
+    int prev_x, prev_y; // Previous position (fixed-point)
+    int radius;         // Radius (fixed-point)
+} Vertex;
+
+
+#define SHIFT_WIDTH (320 << SHIFT)   // Example screen width in fixed-point
+#define SHIFT_HEIGHT (256 << SHIFT)  // Example screen height in fixed-point
+
+#define NUM_POINTS 100
+Vertex points[NUM_POINTS];
+
+
+void initialize_point(Vertex *p, int init_x, int init_y, int radius) {
+    p->x = init_x;
+    p->y = init_y;
+    p->prev_x = init_x;
+    p->prev_y = init_y;
+    p->radius = radius;
+}
+
+void verlet_integration(Vertex *p, int accel_x, int accel_y) {
+    // Calculate new position using Verlet integration
+    // new_pos = 2 * current_pos - prev_pos + accel * Δt^2
+
+    int temp_x = p->x;
+    int temp_y = p->y;
+
+    // Calculate 2 * current_pos
+    int two_current_x = fixed_mult(2 * ONE, p->x); // 2.0 * x
+    int two_current_y = fixed_mult(2 * ONE, p->y); // 2.0 * y
+
+    // Calculate accel * Δt^2
+    int accel_dt2_x = fixed_mult(accel_x, fixed_mult(DELTA_T, DELTA_T));
+    int accel_dt2_y = fixed_mult(accel_y, fixed_mult(DELTA_T, DELTA_T));
+
+    // Update positions
+    p->x = fixed_add(fixed_sub(two_current_x, p->prev_x), accel_dt2_x);
+    p->y = fixed_add(fixed_sub(two_current_y, p->prev_y), accel_dt2_y);
+
+    // Update previous positions
+    p->prev_x = temp_x;
+    p->prev_y = temp_y;
+}
+
+void handle_collisions(Vertex *points, int num_points) {
+    int i, j, dx,dy, dx_sq,dy_sq,distance_sq, radii_sum, radii_sum_sq;
+    for(i = 0; i < num_points; i++) {
+        for(j = i + 1; j < num_points; j++) {
+            dx = points[j].x - points[i].x;
+            dy = points[j].y - points[i].y;
+
+            // Calculate distance squared: dx^2 + dy^2
+            dx_sq = fixed_mult(dx, dx);
+            dy_sq = fixed_mult(dy, dy);
+            distance_sq = fixed_add(dx_sq, dy_sq);
+
+            // Calculate (radius_i + radius_j)^2
+            radii_sum = fixed_add(points[i].radius, points[j].radius);
+            radii_sum_sq = fixed_mult(radii_sum, radii_sum);
+
+            if(distance_sq < radii_sum_sq) {
+                // Points are overlapping, need to push them apart
+
+                // To avoid division and square roots, we'll push along the x and y axes separately
+                if(dx != 0 || dy != 0) {
+                    // Push each point by half the overlap
+                    points[i].x = fixed_sub(points[i].x, fixed_mult(dx, fixed_half()));
+                    points[i].y = fixed_sub(points[i].y, fixed_mult(dy, fixed_half()));
+                    points[j].x = fixed_add(points[j].x, fixed_mult(dx, fixed_half()));
+                    points[j].y = fixed_add(points[j].y, fixed_mult(dy, fixed_half()));
+                }
+            }
+        }
+    }
+}
+
+void apply_boundaries(Vertex *p) {
+    // Left boundary
+    if(p->x < 0) {
+        p->x = 0;
+        p->prev_x = p->x;
+    }
+    // Right boundary
+    if(p->x > SCREEN_WIDTH) {
+        p->x = SCREEN_WIDTH;
+        p->prev_x = p->x;
+    }
+    // Top boundary
+    if(p->y < 0) {
+        p->y = 0;
+        p->prev_y = p->y;
+    }
+    // Bottom boundary
+    if(p->y > SCREEN_HEIGHT) {
+        p->y = SCREEN_HEIGHT;
+        p->prev_y = p->y;
+    }
+}
+
+void Feedbakker() {
+    int i, step, init_x,init_y,radius,x_px, y_px, radius_px;
+
+    if (frame == 0) {
+        for(i = 0; i < NUM_POINTS; i++) {
+            // Random positions within screen boundaries
+            init_x = (rand() % 320) << SHIFT; // Convert to fixed-point
+            init_y = (rand() % 256) << SHIFT; // Convert to fixed-point
+            radius = (5 << SHIFT);            // Radius of 5.0 units
+            initialize_point(&points[i], init_x, init_y, radius);
+        }        
+    }
+
+    for(step = 0; step < 1000; step++) {
+        // Apply Verlet integration to each point with gravity
+        for(i = 0; i < NUM_POINTS; i++) {
+            verlet_integration(&points[i], 0, GRAVITY);
+        }
+
+        // Handle collisions between points
+        handle_collisions(points, NUM_POINTS);
+
+        // Apply boundary conditions
+        for(i = 0; i < NUM_POINTS; i++) {
+            apply_boundaries(&points[i]);
+        }
+
+        // Optional: Render the points
+        // Since rendering is platform-specific, it's omitted here
+        // You can convert fixed-point positions to integer pixels for rendering
+        
+        for(i = 0; i < NUM_POINTS; i++) {
+            x_px = points[i].x >> SHIFT;
+            y_px = points[i].y >> SHIFT;
+            radius_px = points[i].radius >> SHIFT;
+            chunkyBuffer[ymul[y_px]+x_px] = 20+(i%8);
+        }
+        
+    }
 }
 
 DrawFunc DrawFuncs[4] = {HeightMap, Lines, Raycast, Feedbakker};
@@ -1399,7 +1578,8 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
-        scene = (totalframes>>8)%3;
+        scene = 3;
+        //scene = (totalframes>>8)%3;
 
         if (oldscene != scene) {
             frame = 0;

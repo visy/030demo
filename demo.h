@@ -46,9 +46,8 @@
 #define INTTOFIX(x) ((x)<<FIXSHIFT)
 #define FIXTOINT(x) ((x)>>FIXSHIFT)
 // multiply and divide
-#define FIXMULT(x,y) (((x)>>HALFSHIFT)*((y)>>HALFSHIFT))
-#define FIXDIV(x,y) (((x)/(y>>HALFSHIFT))<<HALFSHIFT)
-
+#define FIXMULT(x, y) ((int)(((long)(x) * (long)(y)) >> FIXSHIFT))
+#define FIXDIV(x, y) ((int)(((long)(x) << FIXSHIFT) / (y)))
 
 BOOL initScreen(struct BitMap **bm, struct Screen **s);
 void MainLoop();
