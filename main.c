@@ -670,8 +670,8 @@ void aalinethick(int x0, int y0, int x1, int y1, UBYTE color, int thickness) {
 }
 
 
-int ppx = 8;
-int ppy = 8;
+int ppx = 8<<10;
+int ppy = 8<<10;
 int pdir = 1; // up, down, left, right
 
 
@@ -741,6 +741,58 @@ void init_lookup_tables() {
 
 }
 
+int cos_table[266] = {
+    128, 127, 127, 127, 126, 126, 125, 124, 123, 122, 121, 120, 118, 117, 115, 114, 112, 110, 108, 106, 104, 101, 99, 96, 93, 91, 88, 85, 82, 79, 76, 72, 69, 66, 62, 59, 55, 51, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12, 8, 4, 0, -4, -8, -12, -16, -20, -24, -28, -32, -36, -40, -44, -48, -51, -55, -59, -62, -66, -69, -72, -76, -79, -82, -85, -88, -91, -93, -96, -99, -101, -104, -106, -108, -110, -112, -114, -115, -117, -118, -120, -121, -122, -123, -124, -125, -126, -126, -127, -127, -127, -128, -127, -127, -127, -126, -126, -125, -124, -123, -122, -121, -120, -118, -117, -115, -114, -112, -110, -108, -106, -104, -101, -99, -96, -93, -91, -88, -85, -82, -79, -76, -72, -69, -66, -62, -59, -55, -51, -48, -44, -40, -36, -32, -28, -24, -20, -16, -12, -8, -4, 0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 51, 55, 59, 62, 66, 69, 72, 76, 79, 82, 85, 88, 91, 93, 96, 99, 101, 104, 106, 108, 110, 112, 114, 115, 117, 118, 120, 121, 122, 123, 124, 125, 126, 126, 127, 127, 127
+};
+
+int sin_table[266] = {
+    0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 51, 55, 59, 62, 66, 69, 72, 76, 79, 82, 85, 88, 91, 93, 96, 99, 101, 104, 106, 108, 110, 112, 114, 115, 117, 118, 120, 121, 122, 123, 124, 125, 126, 126, 127, 127, 127, 128, 127, 127, 127, 126, 126, 125, 124, 123, 122, 121, 120, 118, 117, 115, 114, 112, 110, 108, 106, 104, 101, 99, 96, 93, 91, 88, 85, 82, 79, 76, 72, 69, 66, 62, 59, 55, 51, 48, 44, 40, 36, 32, 28, 24, 20, 16, 12, 8, 4, 0, -4, -8, -12, -16, -20, -24, -28, -32, -36, -40, -44, -48, -51, -55, -59, -62, -66, -69, -72, -76, -79, -82, -85, -88, -91, -93, -96, -99, -101, -104, -106, -108, -110, -112, -114, -115, -117, -118, -120, -121, -122, -123, -124, -125, -126, -126, -127, -127, -127, -128, -127, -127, -127, -126, -126, -125, -124, -123, -122, -121, -120, -118, -117, -115, -114, -112, -110, -108, -106, -104, -101, -99, -96, -93, -91, -88, -85, -82, -79, -76, -72, -69, -66, -62, -59, -55, -51, -48, -44, -40, -36, -32, -28, -24, -20, -16, -12, -8, -4
+};
+
+void move_forward() {
+    int pdir_index1, pdir_frac, pdir_index2;
+    int ray_x1, ray_y1, ray_x2, ray_y2;
+    int ray_x, ray_y;
+    int move_speed;
+    int new_ppx, new_ppy;
+
+    // Calculate pdir indexes for interpolation (just like in Raycast)
+    pdir_index1 = (pdir - 1) >> 1;    // Equivalent to (pdir - 1) / 2
+    pdir_frac = (pdir - 1) & 1;       // 0 if even, 1 if odd
+    pdir_index2 = pdir_index1 + 1;
+
+    if (pdir_index2 >= 133) {
+        pdir_index2 = 0;  // Wrap around
+    }
+
+    // Retrieve precomputed ray directions from lookup tables (scaled by 128)
+    ray_x1 = lookup_tables[pdir_index1][200][0];
+    ray_y1 = lookup_tables[pdir_index1][200][1];
+    ray_x2 = lookup_tables[pdir_index2][200][0];
+    ray_y2 = lookup_tables[pdir_index2][200][1];
+
+    // Interpolate between the two directions if necessary
+    if (pdir_frac == 0) {
+        ray_x = ray_x1;
+        ray_y = ray_y1;
+    } else {
+        ray_x = (ray_x1 + ray_x2) >> 1;
+        ray_y = (ray_y1 + ray_y2) >> 1;
+    }
+
+    // Adjust the movement speed (scaled by 128)
+    move_speed = 64;  // Define MOVE_SPEED as needed
+
+    // Move the player forward based on the interpolated ray direction
+    new_ppx = ppx + (ray_x * move_speed / 128);
+    new_ppy = ppy + (ray_y * move_speed / 128);
+
+    // Update player position (you can add collision checks here)
+    ppx = new_ppx;
+    ppy = new_ppy;
+}
+
+
 void Raycast() {
     UBYTE ray;
     UBYTE col;
@@ -773,12 +825,6 @@ void Raycast() {
     int ray_x1, ray_x2, ray_y1, ray_y2;
     int pdir_frac;
     int line_gap = 16;  // Initial gap between lines
-
-    // Update player direction (assuming pdir ranges from 1 to 133)
-    pdir++;
-    if (pdir > 266) {
-        pdir = 1;
-    }
 
     // Clear or update the screen buffer as needed
     if (frame == 0) {
@@ -825,8 +871,8 @@ void Raycast() {
         }
 
         // Initialize variables
-        test_x = ppx << 10;  // Player's position scaled
-        test_y = ppy << 10;
+        test_x = ppx;  // Player's position scaled
+        test_y = ppy;
         step_x = ray_x;
         step_y = ray_y;
         distance = 0;
@@ -1331,190 +1377,27 @@ void Lines()
 
 }
 
-#define SHIFT 16                  // Number of fractional bits
-#define ONE (1 << SHIFT)          // Representation of 1.0 in fixed-point
-#define HALF (ONE >> 1)           // Representation of 0.5 in fixed-point
-
-// Time step (Δt) scaled by SHIFT (e.g., Δt = 1/60 ≈ 0.0166667)
-#define DELTA_T 1092      // Approximately 0.0166667 * 2^16 ≈ 1092
-
-// Gravity acceleration scaled by SHIFT (e.g., g = 9.81)
-#define GRAVITY 643634 // Approximately 9.81 * 65536 ≈ 643634
-
-int fixed_mult(int a, int b) {
-    long temp = (long)a * (long)b;
-    return (int)(temp >> SHIFT);
-}
-
-// Fixed-point division
-int fixed_div(int a, int b) {
-    long temp;
-    if (b == 0) {
-        // Handle division by zero as needed
-        return 0;
-    }
-    temp = ((long)a << SHIFT) / b;
-    return (int)temp;
-}
-
-// Fixed-point representation of 0.5
-int fixed_half() {
-    return HALF;
-}
-
-// Fixed-point addition
-int fixed_add(int a, int b) {
-    return a + b;
-}
-
-// Fixed-point subtraction
-int fixed_sub(int a, int b) {
-    return a - b;
-}
-
-typedef struct {
-    int x, y;           // Current position (fixed-point)
-    int prev_x, prev_y; // Previous position (fixed-point)
-    int radius;         // Radius (fixed-point)
-} Vertex;
-
-
-#define SHIFT_WIDTH (320 << SHIFT)   // Example screen width in fixed-point
-#define SHIFT_HEIGHT (256 << SHIFT)  // Example screen height in fixed-point
-
-#define NUM_POINTS 100
-Vertex points[NUM_POINTS];
-
-
-void initialize_point(Vertex *p, int init_x, int init_y, int radius) {
-    p->x = init_x;
-    p->y = init_y;
-    p->prev_x = init_x;
-    p->prev_y = init_y;
-    p->radius = radius;
-}
-
-void verlet_integration(Vertex *p, int accel_x, int accel_y) {
-    // Calculate new position using Verlet integration
-    // new_pos = 2 * current_pos - prev_pos + accel * Δt^2
-
-    int temp_x = p->x;
-    int temp_y = p->y;
-
-    // Calculate 2 * current_pos
-    int two_current_x = fixed_mult(2 * ONE, p->x); // 2.0 * x
-    int two_current_y = fixed_mult(2 * ONE, p->y); // 2.0 * y
-
-    // Calculate accel * Δt^2
-    int accel_dt2_x = fixed_mult(accel_x, fixed_mult(DELTA_T, DELTA_T));
-    int accel_dt2_y = fixed_mult(accel_y, fixed_mult(DELTA_T, DELTA_T));
-
-    // Update positions
-    p->x = fixed_add(fixed_sub(two_current_x, p->prev_x), accel_dt2_x);
-    p->y = fixed_add(fixed_sub(two_current_y, p->prev_y), accel_dt2_y);
-
-    // Update previous positions
-    p->prev_x = temp_x;
-    p->prev_y = temp_y;
-}
-
-void handle_collisions(Vertex *points, int num_points) {
-    int i, j, dx,dy, dx_sq,dy_sq,distance_sq, radii_sum, radii_sum_sq;
-    for(i = 0; i < num_points; i++) {
-        for(j = i + 1; j < num_points; j++) {
-            dx = points[j].x - points[i].x;
-            dy = points[j].y - points[i].y;
-
-            // Calculate distance squared: dx^2 + dy^2
-            dx_sq = fixed_mult(dx, dx);
-            dy_sq = fixed_mult(dy, dy);
-            distance_sq = fixed_add(dx_sq, dy_sq);
-
-            // Calculate (radius_i + radius_j)^2
-            radii_sum = fixed_add(points[i].radius, points[j].radius);
-            radii_sum_sq = fixed_mult(radii_sum, radii_sum);
-
-            if(distance_sq < radii_sum_sq) {
-                // Points are overlapping, need to push them apart
-
-                // To avoid division and square roots, we'll push along the x and y axes separately
-                if(dx != 0 || dy != 0) {
-                    // Push each point by half the overlap
-                    points[i].x = fixed_sub(points[i].x, fixed_mult(dx, fixed_half()));
-                    points[i].y = fixed_sub(points[i].y, fixed_mult(dy, fixed_half()));
-                    points[j].x = fixed_add(points[j].x, fixed_mult(dx, fixed_half()));
-                    points[j].y = fixed_add(points[j].y, fixed_mult(dy, fixed_half()));
-                }
-            }
-        }
-    }
-}
-
-void apply_boundaries(Vertex *p) {
-    // Left boundary
-    if(p->x < 0) {
-        p->x = 0;
-        p->prev_x = p->x;
-    }
-    // Right boundary
-    if(p->x > SCREEN_WIDTH) {
-        p->x = SCREEN_WIDTH;
-        p->prev_x = p->x;
-    }
-    // Top boundary
-    if(p->y < 0) {
-        p->y = 0;
-        p->prev_y = p->y;
-    }
-    // Bottom boundary
-    if(p->y > SCREEN_HEIGHT) {
-        p->y = SCREEN_HEIGHT;
-        p->prev_y = p->y;
-    }
-}
 
 void Feedbakker() {
-    int i, step, init_x,init_y,radius,x_px, y_px, radius_px;
+    memset(chunkyBuffer, 0, 320*256);
 
     if (frame == 0) {
-        for(i = 0; i < NUM_POINTS; i++) {
-            // Random positions within screen boundaries
-            init_x = (rand() % 320) << SHIFT; // Convert to fixed-point
-            init_y = (rand() % 256) << SHIFT; // Convert to fixed-point
-            radius = (5 << SHIFT);            // Radius of 5.0 units
-            initialize_point(&points[i], init_x, init_y, radius);
-        }        
     }
 
-    for(step = 0; step < 1000; step++) {
-        // Apply Verlet integration to each point with gravity
-        for(i = 0; i < NUM_POINTS; i++) {
-            verlet_integration(&points[i], 0, GRAVITY);
-        }
-
-        // Handle collisions between points
-        handle_collisions(points, NUM_POINTS);
-
-        // Apply boundary conditions
-        for(i = 0; i < NUM_POINTS; i++) {
-            apply_boundaries(&points[i]);
-        }
-
-        // Optional: Render the points
-        // Since rendering is platform-specific, it's omitted here
-        // You can convert fixed-point positions to integer pixels for rendering
         
-        for(i = 0; i < NUM_POINTS; i++) {
-            x_px = points[i].x >> SHIFT;
-            y_px = points[i].y >> SHIFT;
-            radius_px = points[i].radius >> SHIFT;
-            chunkyBuffer[ymul[y_px]+x_px] = 20+(i%8);
-        }
-        
-    }
 }
 
 DrawFunc DrawFuncs[4] = {HeightMap, Lines, Raycast, Feedbakker};
+#define KEY_EXIT          0x01  // Q or ESC
+#define KEY_RELOAD        0x02  // R
+#define KEY_MOVE_FORWARD  0x04  // W or Up Arrow
+#define KEY_MOVE_BACKWARD 0x08  // S or Down Arrow
+#define KEY_STRAFE_LEFT    0x10 // A or Left Arrow
+#define KEY_STRAFE_RIGHT   0x20 // D or Right Arrow
+#define KEY_ROT_LEFT       0x40 // Rotate Left (Left Arrow)
+#define KEY_ROT_RIGHT      0x80 // Rotate Right (Right Arrow)
+#define KEY_SPECIAL_2B     0x100 // Special Key with Key Code $2B
+#define KEY_SPECIAL_30     0x200 // Special Key with Key Code $30
 
 static volatile UBYTE key_buffer = 0x80;
 int keys()
@@ -1542,6 +1425,24 @@ int keys()
         return 2;
     }
 
+    // W: forward
+    if (key_buffer == 0x11) {
+        key_buffer = 0;
+        return 3;
+    }
+
+    // A
+    if (key_buffer == 0x20) {
+        key_buffer = 0;
+        return 4;
+    }
+
+    // D
+    if (key_buffer == 0x22) {
+        key_buffer = 0;
+        return 5;
+    }
+
     key_buffer = 0;
     return 0;
 }
@@ -1560,15 +1461,35 @@ void ReloadLua()
 }
 
 void MainLoop() {
+    int key = 0;
+    int ray_x,ray_y,move_speed,new_ppx,new_ppy;
     while (ex == 0) {
-        if (keys() == 1) {
+        key = keys();
+        if (key == 1) {
             ex = 1;
         }
 
-        if (keys() == 2) {
+        if (key == 2) {
             ReloadLua();
         }
 
+        if (key == 3) {
+            move_forward();
+               
+        }
+
+        if (key == 4) {
+            pdir--;
+
+            if (pdir <= 0) pdir = 266;
+        }
+
+        if (key == 5) {
+            pdir++;
+            if (pdir > 266) pdir = 1;
+        }
+
+        
         if (mouseCiaStatus()) 
         {
             ex = 1;
@@ -1578,7 +1499,7 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
-        scene = 3;
+        scene = 2;
         //scene = (totalframes>>8)%3;
 
         if (oldscene != scene) {
