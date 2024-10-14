@@ -5,11 +5,6 @@
 
 #include "demo.h"
 
-#define LUA_IMPL
-#include "minilua.h"
-
-#define __builtin_expect(x,y)
-
 #include "ptplayer/ptplayer.h"
 
 #define MAP_WIDTH  16
@@ -21,7 +16,7 @@
 #define SCALE_FACTOR_SHIFT 10  // 1024 is 2^10
 
 #define MAX_LINE_HEIGHT SCREEN_HEIGHT
-unsigned int reciprocal_table[MAX_LINE_HEIGHT + 1]; 
+unsigned int reciprocal_table[MAX_LINE_HEIGHT + 1];
 
 #include "ray_lookup.h"
 
@@ -405,6 +400,8 @@ UWORD cpicpal[] =
     0x8800, 0x9900, 0xAA00, 0xBB00, 0xCC00, 0xDD00, 0xEE00, 0xFF00   
 };
 
+#include "font.h"
+
 extern struct Custom custom;
 extern struct CIA ciaa;
 
@@ -472,8 +469,6 @@ ULONG st;
 struct Device* TimerBase;
 static struct IORequest timereq;
 
-lua_State *L;
-
 static struct timeval startTime;
 
 inline int mod(int dividend, int divisor) {
@@ -522,7 +517,7 @@ inline void pixel(int x,int y) {
 // THE EXTREMELY FAST LINE ALGORITHM Variation E (Addition Fixed Point PreCalc Small Display)
 // Small Display (256x256) resolution.
 void line(int x, int y, int x2, int y2) {
-    bool yLonger=false;
+    UBYTE yLonger=0;
     int shortLen=y2-y;
     int longLen=x2-x;
     int j;
@@ -532,12 +527,12 @@ void line(int x, int y, int x2, int y2) {
         int swap=shortLen;
         shortLen=longLen;
         longLen=swap;               
-        yLonger=true;
+        yLonger=1;
     }
     if (longLen==0) decInc=0;
     else decInc = (shortLen << 8) / longLen;
 
-    if (yLonger) {
+    if (yLonger == 1) {
         if (longLen>0) {
             longLen+=y;
             for (j=0x80+(x<<8);y<=longLen;++y) {
@@ -669,6 +664,166 @@ void aalinethick(int x0, int y0, int x1, int y1, UBYTE color, int thickness) {
     }
 }
 
+typedef struct {
+    int x, y;          // Position in the texture atlas
+    int width, height; // Dimensions of the character
+    int xoffset, yoffset; // Character offsets
+    int xadvance;      // Space to advance to the next character
+} CharInfo;
+
+// Font character information for the full character set
+CharInfo font_chars[94] = {
+    {0, 0, 0, 0, 0, 0, 11},  // ' ' (space)
+    {243, 68, 10, 14, -3, 22, 6},  // ',' 
+    {243, 83, 7, 7, -2, 23, 4},    // '.' 
+    {160, 98, 15, 25, -1, 5, 13},  // '?' 
+    {28, 68, 22, 28, -1, 5, 21},   // 'A'
+    {176, 98, 19, 24, -1, 6, 18},  // 'B'
+    {165, 68, 18, 26, -1, 5, 16},  // 'C'
+    {184, 68, 19, 26, -1, 6, 16},  // 'D'
+    {196, 98, 19, 24, -1, 5, 16},  // 'E'
+    {216, 98, 19, 24, -1, 6, 17},  // 'F'
+    {21, 0, 21, 34, -2, 5, 19},    // 'G'
+    {117, 0, 20, 32, -1, 6, 18},   // 'H'
+    {0, 125, 19, 24, -2, 6, 15},   // 'I'
+    {113, 36, 24, 30, -6, 6, 17},  // 'J'
+    {51, 68, 25, 28, -1, 6, 19},   // 'K'
+    {204, 68, 18, 26, -2, 5, 15},  // 'L'
+    {0, 36, 30, 31, -1, 7, 28},    // 'M'
+    {31, 36, 21, 31, -1, 7, 19},   // 'N'
+    {236, 98, 20, 24, -1, 6, 18},  // 'O'
+    {62, 98, 18, 25, -1, 6, 16},   // 'P'
+    {43, 0, 30, 33, -1, 6, 20},    // 'Q'
+    {138, 0, 30, 32, -1, 6, 19},   // 'R'
+    {232, 36, 24, 26, -4, 5, 18},  // 'S'
+    {20, 125, 20, 24, -1, 6, 17},  // 'T'
+    {41, 125, 23, 23, -2, 7, 20},  // 'U'
+    {74, 0, 22, 33, -1, -2, 20},   // 'V'
+    {169, 0, 27, 32, -1, -2, 25},  // 'W'
+    {227, 0, 29, 31, -1, 5, 22},   // 'X'
+    {53, 36, 29, 31, -5, 6, 23},   // 'Y'
+    {138, 36, 29, 30, -1, 6, 21},  // 'Z'
+    {65, 125, 18, 21, -1, 10, 16}, // 'a'
+    {81, 98, 17, 25, -1, 5, 15},   // 'b'
+    {84, 125, 18, 20, -2, 10, 15}, // 'c'
+    {77, 68, 19, 28, -2, 2, 16},   // 'd'
+    {187, 125, 17, 18, -1, 12, 15},// 'e'
+    {197, 0, 29, 32, -8, 4, 18},   // 'f'
+    {97, 0, 19, 33, -2, 10, 16},   // 'g'
+    {0, 0, 20, 35, -1, 4, 18},     // 'h'
+    {99, 98, 15, 25, -1, 5, 13},   // 'i'
+    {208, 36, 23, 29, -8, 8, 14},  // 'j'
+    {223, 68, 19, 26, -2, 5, 15},  // 'k'
+    {115, 98, 15, 25, -1, 5, 13},  // 'l'
+    {97, 68, 28, 27, -2, 11, 25},  // 'm'
+    {168, 36, 19, 30, -1, 11, 17}, // 'n'
+    {103, 125, 18, 20, 0, 11, 19}, // 'o'
+    {126, 68, 19, 27, 0, 11, 20},  // 'p'
+    {188, 36, 19, 30, 0, 9, 20},   // 'q'
+    {0, 98, 30, 26, 0, 11, 19},    // 'r'
+    {122, 125, 21, 20, -4, 11, 15},// 's'
+    {144, 125, 20, 19, -2, 11, 17},// 't'
+    {165, 125, 21, 19, -1, 11, 18},// 'u'
+    {146, 68, 18, 27, -1, 3, 16},  // 'v'
+    {0, 68, 27, 29, -2, 1, 24},    // 'w'
+    {31, 98, 30, 26, -5, 9, 24},   // 'x'
+    {83, 36, 29, 31, -6, 10, 22},  // 'y'
+    {131, 98, 28, 25, -1, 11, 18}  // 'z'
+};
+
+#define FONT_ATLAS_WIDTH 256  // Width of the font atlas image
+
+void draw_font_bitmap(int x, int y, int width, int height, int srcX, int srcY) {
+    int row, col;
+    UBYTE pixel_value;
+    int atlas_index;
+    for (row = 0; row < height; row++) {
+        for (col = 0; col < width; col++) {
+            // Calculate the source position in the font atlas
+            atlas_index = (srcY + row) * FONT_ATLAS_WIDTH + (srcX + col);
+            
+            // Read the pixel value from the font atlas (grayscale value 16-31)
+            pixel_value = font_atlas[atlas_index];
+            
+            // Only render non-transparent pixels (16-30), 31 is fully white (transparent)
+            if (pixel_value > 16) {
+                chunkyBuffer[ymul[y + row] + (x + col)] = pixel_value;
+                chunkyBuffer[ymul[y + row+1] + (x + col)] = 16;
+            }
+        }
+    }
+}
+
+const int base_height = 33;  
+
+// Function to render a character at a given position
+void render_char(char ch, int xpos, int ypos, int baseline_y) {
+    int char_ypos, char_index;
+    // Lookup character info
+    CharInfo *char_info = NULL;
+
+    if (ch == ' ') {
+        return;
+    }
+
+    char_index = ch - ' ' - 29;  // Original logic for other characters
+    if (ch >= 'a') {
+        char_index -= 6;
+    }
+
+    if (ch == '.') {
+        char_index = 2;
+    }
+
+    if (ch == ',') {
+        char_index = 1;
+    }
+
+    if (ch == '?') {
+        char_index = 3;
+    }
+
+    char_ypos = baseline_y - (base_height - font_chars[char_index].yoffset);
+
+    // Draw the character (this is where you would implement the drawing logic)
+    draw_font_bitmap(xpos, char_ypos, font_chars[char_index].width, font_chars[char_index].height,
+                     font_chars[char_index].x, font_chars[char_index].y);
+
+}
+
+// Function to render a string of text
+void render_text(const char *text, int xpos, int ypos) {
+    int baseline_y = ypos;
+    unsigned char ch;
+    int char_index;
+    while (*text) {
+        ypos = baseline_y - (base_height - font_chars[(unsigned char)*text - ' ' - 29].yoffset);
+        if (*text == ' ') {
+            xpos += 8;  // Advance for space without rendering
+        } else {
+            render_char(*text, xpos, ypos, baseline_y);
+            char_index = *text - ' ' - 29;  // Original logic for other characters
+            if (*text >= 'a') {
+                char_index -= 6;
+            }
+            if (*text == '.') {
+                char_index = 2;
+            }
+
+            if (*text == ',') {
+                char_index = 1;
+            }
+
+            if (*text == '?') {
+                char_index = 3;
+            }
+
+            xpos += font_chars[char_index].xadvance;
+        }
+        text++;
+    }
+}
+
 
 int ppx = 8<<10;
 int ppy = 8<<10;
@@ -791,7 +946,6 @@ void move_forward() {
     ppx = new_ppx;
     ppy = new_ppy;
 }
-
 
 void Raycast() {
     UBYTE ray;
@@ -1018,6 +1172,7 @@ void Raycast() {
     }
 }
 
+
 void rotrect(int centerX, int centerY, int width, int height, int angle, UBYTE color) {
     int halfWidth = width>>1;
     int halfHeight = height>>1;
@@ -1066,20 +1221,6 @@ ULONG getMilliseconds() {
 
     return (endTime.tv_secs * 1000 + endTime.tv_micro / 1000);
 }
-
-static int l_c2p (lua_State *LL) {
-  int x = luaL_checknumber(LL, 1);
-  int y = luaL_checknumber(LL, 2);
-  int w = luaL_checknumber(LL, 3);
-  int h = luaL_checknumber(LL, 4);
-
-  c2p1x1_4_c5_bm_word(w, h, x, y, chunkyBuffer, currentBitmap);
-
-  lua_pushnumber(LL, 0);
-  return 1;
-}
-
-void ReloadLua();
 
 static ULONG App_GetVBR(void)
 {
@@ -1148,17 +1289,6 @@ int main(void) {
     }
 
     init_lookup_tables();
-
-    L = luaL_newstate();
-    if(L == NULL) {
-        return -1;
-    }
-    
-    luaL_openlibs(L);
-    lua_pushcfunction(L, l_c2p);
-    lua_setglobal(L, "c2p");
-
-    ReloadLua();
 
     // hide mouse
     emptyPointer = AllocVec(22 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
@@ -1261,8 +1391,6 @@ _exit_free_temp_bitmap:
     ClearPointer(my_wbscreen_ptr->FirstWindow);
     UnlockPubScreen(NULL, my_wbscreen_ptr);
     FreeVec(emptyPointer);
-
-    lua_close(L);
 
     exit(RETURN_OK);
     
@@ -1387,7 +1515,54 @@ void Feedbakker() {
         
 }
 
-DrawFunc DrawFuncs[4] = {HeightMap, Lines, Raycast, Feedbakker};
+void Intro() {
+    memset(chunkyBuffer, 0, 320*32);
+
+    if (totalframes > 0) {
+        render_text("Quadtrip", totalframes>>4, 34);  // Display "Quadtrip" at (0, 50)
+    }
+
+    // Render "presents" after 50 frames
+    if (totalframes > 30) {
+        render_text("presents", (totalframes-30)>>6, 80);  // Display "presents" at (0, 100)
+    }
+
+    // Render "The" after 100 frames
+    if (totalframes > 80) {
+        render_text("The", 0, 160);  // Display "The" at (0, 150)
+    }
+
+    // Render "Witching" after 150 frames
+    if (totalframes > 120) {
+        render_text("Witching", 0, 200);  // Display "Witching" at (0, 200)
+    }
+
+    // Render "Hour" after 200 frames
+    if (totalframes > 150 && totalframes < 160) {
+        render_text("Hour", 0, 240);  // Display "Hour" at (0, 250)
+    }
+
+    if (totalframes >= 160 && totalframes < 170) {
+        render_text("Hour.", 0, 240);  // Display "Hour" at (0, 250)
+    }
+
+    if (totalframes > 170 && totalframes < 180) {
+        render_text("Hour..", 0, 240);  // Display "Hour" at (0, 250)
+    }
+
+    if (totalframes > 180 && totalframes < 190) {
+        render_text("Hour...", 0, 240);  // Display "Hour" at (0, 250)
+    }
+
+    if (totalframes > 190 && totalframes < 200) {
+        render_text("Hour...?", 0, 240);  // Display "Hour" at (0, 250)
+    }
+
+}
+
+DrawFunc DrawFuncs[5] = {HeightMap, Lines, Raycast, Feedbakker,Intro};
+
+
 #define KEY_EXIT          0x01  // Q or ESC
 #define KEY_RELOAD        0x02  // R
 #define KEY_MOVE_FORWARD  0x04  // W or Up Arrow
@@ -1447,19 +1622,6 @@ int keys()
     return 0;
 }
 
-char *luastr;
-int luainit = 0;
-
-void ReloadLua()
-{
-    if (luainit == 1) {
-        FreeVec(luastr);
-    }
-    WaitTOF();
-    luastr = LoadFile("demo.lua", MEMF_FAST);
-    luainit = 1;
-}
-
 void MainLoop() {
     int key = 0;
     int ray_x,ray_y,move_speed,new_ppx,new_ppy;
@@ -1467,10 +1629,6 @@ void MainLoop() {
         key = keys();
         if (key == 1) {
             ex = 1;
-        }
-
-        if (key == 2) {
-            ReloadLua();
         }
 
         if (key == 3) {
@@ -1499,8 +1657,10 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
-        scene = 2;
-        //scene = (totalframes>>8)%3;
+        if (totalframes > 200) {
+            scene = (totalframes>>8)%3;
+        }
+        else scene = 4;
 
         if (oldscene != scene) {
             frame = 0;
@@ -1510,14 +1670,9 @@ void MainLoop() {
 
         DrawFuncs[scene]();
 
+
         c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
 
-/*
-        lua_pushinteger(L, frame);
-        lua_setglobal(L, "frame");
-
-        luaL_dostring(L, luastr);
-*/
         et = getMilliseconds();
 
 
