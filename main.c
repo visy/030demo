@@ -22,8 +22,8 @@ unsigned int reciprocal_table[MAX_LINE_HEIGHT + 1];
 
 typedef void (*DrawFunc)(void);
 
-int scene = 0;
-int oldscene = 0;
+int scene = 1;
+int oldscene = 1;
 int ex = 0;
 
 ULONG st,et;
@@ -425,6 +425,8 @@ extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y
 extern void ChunkyLine(void* ChunkyScreen __asm("a0"), int x0 __asm("d0"), int y0 __asm("d1"), int x1 __asm("d2"), int y1 __asm("d3"), int Color __asm("d4"), int pixelwidth __asm("d5"), int pixelheight __asm("d6"));
 extern void vline(void* ChunkyScreen __asm("a0"), int color __asm("d0"), int height __asm("d1"));
 extern void vline1(void* ChunkyScreen __asm("a0"), UBYTE color __asm("d0"), int height __asm("d1"));
+
+extern UBYTE mt_E8Trigger;
 
 struct ExecBase     *SysBase;
 
@@ -1170,6 +1172,9 @@ void Raycast() {
             }
         }
     }
+
+    render_text("Where?", 30, 40);
+
 }
 
 
@@ -1311,7 +1316,7 @@ int main(void) {
 
     LoadRGB32(&(mainScreen1->ViewPort), custompal);
 
-    moddata = LoadFile("esa.mod", MEMF_CHIP);
+    moddata = LoadFile("esa3.mod", MEMF_CHIP);
 
     flypic = LoadFile("flypic.raw", MEMF_CHIP);
     chei = LoadFile("chei.raw", MEMF_CHIP);
@@ -1503,6 +1508,11 @@ void Lines()
     for (i = 0; i < 24; i++)
         rotrect(centerX, centerY, width-(i<<3), height-(i<<3), (frame+(i<<2))&0xff, i%15);
 
+
+    render_text("Magic", 30, 40);
+    render_text("Circle", 30, 230);
+
+
 }
 
 
@@ -1516,51 +1526,49 @@ void Feedbakker() {
 }
 
 void Intro() {
-    memset(chunkyBuffer, 0, 320*32);
-
-    if (totalframes > 0) {
-        render_text("Quadtrip", totalframes>>4, 34);  // Display "Quadtrip" at (0, 50)
+    if (frame > 0) {
+        render_text("Quadtrip", 0, 34);  // Display "Quadtrip" at (0, 50)
     }
 
     // Render "presents" after 50 frames
-    if (totalframes > 30) {
-        render_text("presents", (totalframes-30)>>6, 80);  // Display "presents" at (0, 100)
+    if (frame == 20) {
+        render_text("presents", 0, 80);  // Display "presents" at (0, 100)
     }
 
     // Render "The" after 100 frames
-    if (totalframes > 80) {
+    if (frame == 70) {
         render_text("The", 0, 160);  // Display "The" at (0, 150)
     }
 
     // Render "Witching" after 150 frames
-    if (totalframes > 120) {
+    if (frame == 100) {
         render_text("Witching", 0, 200);  // Display "Witching" at (0, 200)
     }
 
     // Render "Hour" after 200 frames
-    if (totalframes > 150 && totalframes < 160) {
+    if (frame == 130) {
         render_text("Hour", 0, 240);  // Display "Hour" at (0, 250)
     }
 
-    if (totalframes >= 160 && totalframes < 170) {
+    if (frame == 140) {
         render_text("Hour.", 0, 240);  // Display "Hour" at (0, 250)
     }
 
-    if (totalframes > 170 && totalframes < 180) {
+    if (frame == 150) {
         render_text("Hour..", 0, 240);  // Display "Hour" at (0, 250)
     }
 
-    if (totalframes > 180 && totalframes < 190) {
+    if (frame == 160) {
         render_text("Hour...", 0, 240);  // Display "Hour" at (0, 250)
     }
 
-    if (totalframes > 190 && totalframes < 200) {
+    if (frame == 170) {
         render_text("Hour...?", 0, 240);  // Display "Hour" at (0, 250)
     }
 
 }
 
-DrawFunc DrawFuncs[5] = {HeightMap, Lines, Raycast, Feedbakker,Intro};
+DrawFunc DrawFuncs[10] = {HeightMap, Lines, Raycast, Feedbakker,Intro,HeightMap, Lines, Raycast, Feedbakker,Intro};
 
 
 #define KEY_EXIT          0x01  // Q or ESC
@@ -1622,6 +1630,19 @@ int keys()
     return 0;
 }
 
+const char* numberToText(int num) {
+    // Array holding the text representation of numbers from 0 to 9
+    const char* numbers[] = { "Zero", "One", "Two", "Three", "Four", "Five", 
+                              "Six", "Seven", "Eight", "Nine" };
+    
+    // Check if the number is in the valid range (0 to 9)
+    if (num >= 0 && num <= 9) {
+        return numbers[num];
+    } else {
+        return "Invalid number"; // For numbers outside the range
+    }
+}
+
 void MainLoop() {
     int key = 0;
     int ray_x,ray_y,move_speed,new_ppx,new_ppy;
@@ -1657,19 +1678,16 @@ void MainLoop() {
         st = getMilliseconds();
         dta = dta + dt;
 
-        if (totalframes > 200) {
-            scene = (totalframes>>8)%3;
-        }
-        else scene = 4;
+        scene = mt_E8Trigger;
 
         if (oldscene != scene) {
             frame = 0;
         }
 
         oldscene = scene;
-
         DrawFuncs[scene]();
 
+//        render_text(numberToText(scene), 0, 240);  // Display "Quadtrip" at (0, 50)
 
         c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
 
