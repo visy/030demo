@@ -832,23 +832,40 @@ int ppy = 8<<10;
 int pdir = 1; // up, down, left, right
 
 
-UBYTE texture[16 * 16] = 
-    {7, 7, 7, 7, 7, 7, 7, 6, 6, 7, 7, 7, 7, 7, 7, 7,
-    1, 1, 1, 1, 1, 1, 6, 6, 5, 5, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1,
-    1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1,
-    1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1,
-    1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1,
-    6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
-    6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 6,
-    1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1,
-    1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1,
-    1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 1, 1, 1,
-    1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 5, 5, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 6, 6, 5, 5, 5, 5, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 6, 6, 5, 5, 1, 1, 1, 1, 1, 1,
-    7, 7, 7, 7, 7, 7, 7, 6, 6, 7, 7, 7, 7, 7, 7, 7
+UBYTE texture[32 * 32] = 
+{
+    25, 25, 24, 24, 24, 24, 25, 23, 21, 22, 24, 25, 25, 25, 25, 25, 24, 24, 24, 24, 25, 25, 24, 23, 22, 20, 23, 25, 25, 25, 25, 25,
+    25, 25, 25, 24, 24, 24, 24, 23, 21, 22, 24, 25, 25, 25, 25, 25, 24, 24, 24, 25, 25, 25, 24, 23, 22, 20, 23, 25, 25, 25, 25, 25,
+    25, 25, 25, 25, 24, 24, 24, 22, 21, 22, 24, 25, 25, 25, 24, 24, 25, 25, 25, 25, 25, 25, 24, 23, 22, 20, 23, 25, 25, 25, 25, 24,
+    25, 25, 25, 25, 24, 24, 24, 23, 21, 22, 24, 25, 25, 24, 24, 24, 25, 25, 25, 25, 25, 25, 24, 24, 22, 20, 23, 25, 25, 25, 24, 24,
+    24, 25, 25, 25, 24, 24, 25, 23, 21, 22, 24, 25, 24, 24, 24, 24, 25, 25, 24, 24, 24, 24, 25, 24, 22, 20, 23, 25, 24, 24, 24, 24,
+    23, 23, 23, 23, 24, 24, 25, 23, 21, 21, 23, 23, 22, 22, 22, 23, 23, 23, 23, 22, 22, 22, 23, 23, 22, 21, 22, 23, 24, 24, 24, 24,
+    21, 21, 21, 22, 24, 24, 24, 23, 21, 21, 21, 20, 20, 20, 20, 21, 21, 21, 21, 20, 20, 21, 21, 21, 21, 21, 21, 21, 22, 24, 24, 24,
+    21, 21, 22, 23, 24, 24, 24, 24, 22, 22, 22, 22, 22, 22, 22, 21, 21, 21, 22, 22, 22, 22, 23, 23, 22, 22, 22, 22, 22, 22, 22, 22,
+    20, 22, 24, 25, 25, 25, 25, 24, 24, 24, 24, 24, 24, 24, 24, 23, 21, 21, 24, 25, 25, 25, 25, 25, 24, 24, 24, 23, 22, 21, 21, 21,
+    20, 22, 25, 25, 25, 25, 25, 25, 24, 24, 24, 24, 25, 25, 24, 23, 21, 21, 24, 26, 26, 25, 26, 25, 25, 24, 24, 24, 22, 20, 21, 21,
+    20, 22, 25, 25, 25, 25, 25, 25, 25, 25, 24, 24, 25, 25, 24, 23, 21, 21, 24, 26, 25, 24, 25, 25, 24, 24, 24, 24, 22, 21, 22, 23,
+    20, 22, 24, 24, 25, 25, 25, 25, 25, 25, 24, 24, 25, 25, 24, 23, 21, 21, 24, 25, 25, 24, 25, 25, 25, 24, 24, 24, 23, 22, 23, 24,
+    20, 21, 22, 23, 24, 25, 25, 25, 25, 25, 24, 24, 24, 24, 25, 24, 21, 21, 24, 25, 25, 25, 25, 25, 25, 25, 25, 25, 24, 23, 24, 25,
+    20, 20, 21, 22, 23, 23, 23, 24, 24, 23, 23, 23, 23, 23, 23, 23, 21, 21, 24, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 24, 25, 25,
+    21, 21, 20, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22, 24, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25, 25,
+    22, 22, 21, 21, 21, 21, 21, 21, 20, 20, 20, 20, 20, 20, 20, 20, 21, 21, 23, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+    24, 23, 23, 23, 23, 23, 24, 22, 20, 20, 21, 21, 21, 21, 21, 21, 20, 20, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+    25, 25, 24, 24, 24, 24, 25, 23, 21, 21, 22, 22, 22, 22, 22, 22, 21, 21, 21, 21, 21, 21, 21, 21, 20, 20, 21, 21, 21, 21, 21, 21,
+    25, 25, 25, 24, 24, 24, 24, 23, 21, 21, 23, 24, 24, 24, 23, 23, 23, 24, 24, 24, 24, 23, 23, 23, 22, 21, 22, 24, 24, 24, 23, 23,
+    25, 25, 25, 25, 24, 24, 24, 23, 21, 22, 24, 25, 25, 25, 24, 24, 25, 25, 25, 25, 25, 25, 24, 24, 22, 21, 23, 25, 25, 25, 24, 24,
+    24, 25, 25, 25, 24, 24, 25, 23, 21, 22, 24, 25, 24, 24, 24, 24, 25, 25, 25, 24, 24, 24, 25, 24, 22, 21, 23, 25, 25, 24, 24, 24,
+    24, 24, 25, 25, 24, 25, 25, 24, 22, 22, 24, 25, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 25, 25, 23, 22, 24, 25, 25, 24, 24, 24,
+    22, 24, 26, 25, 25, 25, 26, 25, 24, 25, 25, 26, 25, 25, 25, 25, 23, 23, 24, 25, 25, 25, 26, 25, 25, 24, 25, 26, 25, 25, 25, 25,
+    21, 23, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 25, 22, 22, 25, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26,
+    20, 23, 26, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 26, 26, 25, 22, 22, 24, 26, 26, 27, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27,
+    20, 23, 27, 26, 26, 26, 27, 27, 27, 27, 27, 27, 27, 27, 26, 24, 21, 21, 24, 26, 26, 27, 26, 26, 26, 26, 26, 27, 27, 27, 27, 27,
+    20, 23, 26, 26, 25, 26, 26, 26, 26, 26, 25, 25, 26, 26, 25, 24, 21, 21, 22, 24, 25, 25, 25, 25, 25, 25, 25, 26, 26, 25, 25, 25,
+    20, 22, 25, 25, 25, 25, 25, 25, 25, 25, 24, 24, 25, 25, 24, 23, 21, 20, 21, 22, 23, 24, 24, 24, 24, 24, 25, 25, 24, 24, 24, 24,
+    20, 22, 25, 25, 24, 25, 25, 25, 25, 25, 24, 24, 24, 24, 25, 23, 21, 21, 22, 23, 24, 24, 24, 24, 24, 25, 25, 25, 24, 24, 24, 25,
+    20, 22, 25, 24, 24, 24, 25, 25, 25, 24, 24, 24, 24, 24, 25, 24, 21, 21, 23, 24, 24, 24, 24, 24, 24, 25, 25, 25, 24, 24, 24, 25,
+    20, 21, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 21, 20, 21, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+    20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20
 };
 
 UBYTE world_map[MAP_HEIGHT][MAP_WIDTH] = {
@@ -982,17 +999,19 @@ void Raycast() {
     int pdir_frac;
     int line_gap = 16;  // Initial gap between lines
 
+    #define DIST 10
+
     // Clear or update the screen buffer as needed
     if (frame == 0) {
-        memset(chunkyBuffer, 4, SCREEN_HEIGHT * SCREEN_WIDTH);
+        memset(chunkyBuffer, 0, SCREEN_HEIGHT * SCREEN_WIDTH);
     } else {
             horizon_line = SCREEN_HEIGHT >> 1;
 
             // Fill ceiling
-            memset(chunkyBuffer, 4, ymul[horizon_line]);
+            memset(chunkyBuffer+ymul[32], 4, ymul[horizon_line-32]);
 
             // Fill floor
-            memset(chunkyBuffer + ymul[horizon_line], 8, ymul[(SCREEN_HEIGHT - horizon_line)]);
+            memset(chunkyBuffer + ymul[horizon_line], 8, ymul[(SCREEN_HEIGHT - horizon_line-32)]);
 
             for (y = horizon_line; y<SCREEN_HEIGHT; y+=line_gap) {
                 memset(chunkyBuffer + ymul[y], 0, SCREEN_WIDTH);
@@ -1003,13 +1022,14 @@ void Raycast() {
             }
     }
 
+    pdir_index1 = (pdir - 1) >> 1;     // Equivalent to (pdir - 1) / 2
+    pdir_frac = (pdir - 1) & 1;        // 0 if even, 1 if odd
+    pdir_index2 = pdir_index1 + 1;
+    if (pdir_index2 >= 133) {
+        pdir_index2 = 0;  // Wrap around
+    }
+
     for (ray = 0; ray < SCREEN_WIDTH; ray += 2) {
-        pdir_index1 = (pdir - 1) >> 1;     // Equivalent to (pdir - 1) / 2
-        pdir_frac = (pdir - 1) & 1;        // 0 if even, 1 if odd
-        pdir_index2 = pdir_index1 + 1;
-        if (pdir_index2 >= 133) {
-            pdir_index2 = 0;  // Wrap around
-        }
         // Retrieve precomputed ray directions
         ray_x1 = lookup_tables[pdir_index1][ray][0];
         ray_y1 = lookup_tables[pdir_index1][ray][1];
@@ -1036,8 +1056,8 @@ void Raycast() {
         side = 0;
 
         // Compute initial map positions
-        map_x = test_x >> 10;
-        map_y = test_y >> 10;
+        map_x = test_x >> DIST;
+        map_y = test_y >> DIST;
 
         while (!hit && distance < (MAX_DEPTH << 8)) {
             // Store previous map positions
@@ -1049,36 +1069,22 @@ void Raycast() {
             test_y += step_y;
 
             // Compute new map positions
-            map_x = test_x >> 10;
-            map_y = test_y >> 10;
+            map_x = test_x >> DIST;
+            map_y = test_y >> DIST;
 
-            // Determine which grid line was crossed
-            if (map_x != prev_map_x && map_y == prev_map_y) {
-                side = 0;  // Vertical wall
-            } else if (map_y != prev_map_y && map_x == prev_map_x) {
-                side = 1;  // Horizontal wall
-            } else if (map_x != prev_map_x && map_y != prev_map_y) {
-                // Both map_x and map_y changed, determine which side was crossed first
+            cell_offset_x = test_x & (1024 - 1);  // scale_factor = 1024
+            cell_offset_y = test_y & (1024 - 1);
 
-                // Calculate the fractional parts within the cell
-                int cell_offset_x = test_x & (1024 - 1);  // scale_factor = 1024
-                int cell_offset_y = test_y & (1024 - 1);
+            // Adjust for direction without conditionals or branching
+            cell_offset_x = step_x >> 31 ? (1024 - cell_offset_x) : cell_offset_x;  // Step_x < 0 adjustment
+            cell_offset_y = step_y >> 31 ? (1024 - cell_offset_y) : cell_offset_y;  // Step_y < 0 adjustment
 
-                // Adjust for direction
-                if (step_x < 0) {
-                    cell_offset_x = 1024 - cell_offset_x;
-                }
-                if (step_y < 0) {
-                    cell_offset_y = 1024 - cell_offset_y;
-                }
+            // Determine the side based on the smaller offset (without conditionals)
+            side = (cell_offset_x - cell_offset_y) >> 31 & 1;  // 0 for vertical wall, 1 for horizontal wall
 
-                // Compare adjusted offsets to determine the side
-                if (cell_offset_x < cell_offset_y) {
-                    side = 0;  // Vertical wall
-                } else {
-                    side = 1;  // Horizontal wall
-                }
-            }
+            // Use logical AND to check for neighboring walls
+            side |= !(world_map[map_y][prev_map_x] == 0) & 1;  // Vertical wall check
+            side &= (world_map[prev_map_y][map_x] == 0) | 0;   // Horizontal wall check
 
             // Collision check
             if (map_x >= 0 && map_x < MAP_WIDTH && map_y >= 0 && map_y < MAP_HEIGHT) {
@@ -1089,12 +1095,12 @@ void Raycast() {
             }
 
             // Increment the distance by the scaled step size (integer only)
-            distance += (1024 >> 10);  // Equivalent to adding 1 unit
+            distance += (1024 >> DIST);  // Equivalent to adding 1 unit
         }
 
         if (hit) {
             // Calculate the height of the line to draw on screen
-            scaled_screen_height = SCREEN_HEIGHT << 3;  // Pre-multiply by 8
+            scaled_screen_height = SCREEN_HEIGHT << 4;  // Pre-multiply by 8
             line_height = 0;
             temp_distance = distance;
             shift_amount = 0;
@@ -1124,19 +1130,19 @@ void Raycast() {
 
             // Texture mapping
             if (side == 0) {
-                texX = (test_y >> 6) & 15;  // Adjusted for 16x16 texture size
+                texX = (test_y >> 5) & 31;  // Adjusted for 16x16 texture size
             } else {
-                texX = (test_x >> 6) & 15;
+                texX = (test_x >> 5) & 31;
             }
 
             // Initialize variables for span rendering
             y = line_start;
             while (y <= line_end) {
                 // Get the current color from the texture
-                cc = texture[(((texY >> 8) & 15) << 4) + texX]+16;
-                    if (side == 1) {
-                        cc +=4;
-                    }
+                cc = texture[(((texY >> 8) & 31) << 5) + texX]-2;
+                if (side == 1) {
+                    cc += 6;
+                }
 
                 // Start of the color span
                 span_start = y;
@@ -1152,10 +1158,10 @@ void Raycast() {
                     }
 
                     // Get the next color
-                    next_cc = texture[(((texY >> 8) & 15) << 4) + texX]+16;
+                    next_cc = texture[(((texY >> 8) & 31) << 5) + texX]-2;
 
                     if (side == 1) {
-                        next_cc +=4;
+                        next_cc += 6;
                     }
 
                     // Check if the color has changed
@@ -1568,7 +1574,7 @@ void Intro() {
 
 }
 
-DrawFunc DrawFuncs[10] = {HeightMap, Lines, Raycast, Feedbakker,Intro,HeightMap, Lines, Raycast, Feedbakker,Intro};
+DrawFunc DrawFuncs[10] = {HeightMap, Raycast, Lines, Feedbakker,Intro, Feedbakker, Feedbakker, Feedbakker, Feedbakker,Feedbakker};
 
 
 #define KEY_EXIT          0x01  // Q or ESC
