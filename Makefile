@@ -9,7 +9,6 @@ EXECUTABLE=demo.exe
 
 all: ptplayer.o c2p_kalms.o c2p.o p2c.o $(SOURCES) $(EXECUTABLE) 
 
-
 ptplayer.o: ptplayer/ptplayer.asm
 	$(VASM) $(VASMFLAGS) -o ptplayer.o ptplayer/ptplayer.asm
 
@@ -23,7 +22,7 @@ p2c.o: chunkyconverter/p2c.s
 	$(VASM) $(VASMFLAGS) -o p2c.o chunkyconverter/p2c.s
 
 $(EXECUTABLE): $(OBJECTS) p2c.o c2p.o
-	$(CC) $(LDFLAGS) $(OBJECTS) p2c.o c2p.o c2p_kalms.o ptplayer.o -o $@ -Lmfloat -lmdouble -lmtransdouble -lmtransfloat -lminteger
+	$(CC) $(LDFLAGS) $(OBJECTS) p2c.o c2p.o c2p_kalms.o ptplayer.o -o $@
 	
 clean: 
 	rm *.o *.lnk *.info *.uaem $(EXECUTABLE)
