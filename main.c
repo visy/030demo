@@ -385,6 +385,9 @@ UBYTE sine[];
 int zmul[512][512];
 int zdiv[512][512];
 int zmod[512][512];
+#define MAX_FRAME 256  // Define a maximum frame range for the lookup table
+
+int diagBlockLookup[MAX_FRAME][MAX_FRAME];  // Lookup table for diagBlock
 
 int ymul[256] = 
 {
@@ -996,9 +999,16 @@ UBYTE world_map[MAP_HEIGHT][MAP_WIDTH] = {
 
 struct Library *UtilityBase;
 
+#define DiagShiftAmount 5
 
 void init_lookup_tables() {
     int i, ii;
+    int xFrame, yFrame;
+    for (xFrame = 0; xFrame < MAX_FRAME; xFrame++) {
+        for (yFrame = 0; yFrame < MAX_FRAME; yFrame++) {
+            diagBlockLookup[xFrame][yFrame] = ((xFrame + yFrame) >> DiagShiftAmount) ^ ((xFrame - yFrame) >> DiagShiftAmount);
+        }
+    }
 
     for(i=0; i < 256; i++) {
         ymul[i] = i * 160;
@@ -1286,6 +1296,47 @@ void Raycast() {
 
 }
 
+void RenderCheckerboard(UBYTE color1, UBYTE color2) {
+    UBYTE x, y;
+    UBYTE currentColor;
+    int index = 0;
+    UBYTE *chunkyBufferPtr = chunkyBuffer;  // Pointer to chunky buffer for faster access
+    int diagBlock;
+    int lastDiagBlock = -1;
+    UBYTE adjustedColor1, adjustedColor2;    
+    UBYTE yFrame,xFrame;
+
+    for (y = 0; y < 64; y += 1) {  // Handle two rows at a time
+        index = ymul[(y << 1)];  // Start index of the row
+        yFrame = y + frame;
+
+        for (x = 0; x < 160; x += 1) {  // Handle two pixels at a time
+            xFrame = x;
+            diagBlock = diagBlockLookup[xFrame % MAX_FRAME][yFrame % MAX_FRAME];
+
+            // Check if we're in a new diamond block
+            if (diagBlock != lastDiagBlock) {
+                // Update colors only when we switch to a new diamond block
+                adjustedColor1 = color1 + (diagBlock & 0x07);  // Subtle variation for each diamond
+                adjustedColor2 = color2 + (diagBlock & 0x07);  // Same for color2
+                lastDiagBlock = diagBlock;  // Track the current diamond block
+            }
+
+            // Alternating color per diagonal block
+            currentColor = (diagBlock & 1) ? adjustedColor2 : adjustedColor1;
+
+            // Set the current and next pixel to the same color for two rows
+            chunkyBufferPtr[index] = currentColor;
+            chunkyBufferPtr[index+160] = currentColor&diagBlock;
+
+            chunkyBufferPtr[ymul[255]-index-1] = currentColor;
+            chunkyBufferPtr[ymul[255]-index+160-1] = currentColor&diagBlock;
+
+            // Increment the buffer index directly
+            index += 1;
+        }
+    }
+}
 
 void rotrect(int centerX, int centerY, int width, int height, int angle, UBYTE color) {
     int halfWidth = width>>1;
@@ -1622,12 +1673,13 @@ void Lines()
 
 
 void Feedbakker() {
-    memset(chunkyBuffer, 0, 320*256);
 
     if (frame == 0) {
+        memset(chunkyBuffer, 0, 320*256);
     }
+    RenderCheckerboard(0x03, 0x08);
 
-        
+    render_text("Go Go Go?", 8, 240, 1);
 }
 
 void Intro() {
