@@ -42,6 +42,7 @@ UBYTE* sideflypic;
 UBYTE* listrippic;
 UBYTE* gpspic;
 UBYTE* gps2pic;
+UBYTE* tinyfont;
 
 ULONG custompal[] = {
     256l << 16 + 0,
@@ -972,6 +973,45 @@ void render_text(const char *text, int xpos, int ypos, int ander) {
     }
 }
 
+// Function to render a character at a given position
+void render_tinychar(char ch, int xpos, int ypos, UBYTE col) {
+    int char_x, char_y;
+    UBYTE x,y,pix;
+
+    if (ch == ' ') {
+        return;
+    }
+
+    char_x = ((ch - 32) % 19)*5;
+    char_y = ((ch - 32) / 19)*5;
+
+    for (y = 0; y < 5; y++) {
+        for (x = 0; x < 5; x++) {
+            pix = tinyfont[(((char_y+y)*96))+(char_x+x+1)];
+            if (pix != 160) {
+                chunkyBuffer[ymul[ypos+(y<<1)]+xpos+x] = col;
+                chunkyBuffer[ymul[ypos+(y<<1)+1]+xpos+x] = col;
+            }
+        }
+    }
+}
+
+void render_tinytext(const char *text, int xpos, int ypos, UBYTE col) {
+    int baseline_y = ypos;
+    unsigned char ch;
+    int char_index;
+    while (*text) {
+        ypos = baseline_y;
+        if (*text == ' ') {
+            xpos += 6;
+        } else {
+            render_tinychar(*text, xpos, ypos, col);
+            char_index = *text - 32;  // Original logic for other characters
+            xpos += 6;
+        }
+        text++;
+    }
+}
 
 int ppx = 8<<10;
 int ppy = 8<<10;
@@ -1334,7 +1374,7 @@ void Raycast() {
         }
     }
 
-    render_text("Where?", 30, 40, 0);
+    render_text("Top Floor?", 0, 80, 0);
 
 }
 
@@ -1540,6 +1580,7 @@ void OnExit() {
 
     FreeVec(flypic);
     FreeVec(testpic);
+    FreeVec(tinyfont);
     FreeVec(shockpic);
     FreeVec(listrippic);
     FreeVec(gpspic);
@@ -1664,6 +1705,13 @@ int main(void) {
     gps2pic = LoadTarga("gps2.tga",9);
     if (gps2pic == NULL) {
         Printf("failed to load gps2.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    tinyfont = LoadTarga("tinyfont.tga",10);
+    if (tinyfont == NULL) {
+        Printf("failed to load tinyfont.tga\n");
         OnExit();
         exit(1);
     }
@@ -1812,6 +1860,14 @@ void Lines()
 
     if (scenedta < 120) {
         DrawPicT(gps2pic,48,0,160,256);
+        if (scenedta > 20) {
+        render_tinytext("Witchfinder" , 0, 60, 160);
+        }
+        if (scenedta > 60) {
+        render_tinytext("Logging in..." , 0, 73, (frame>>1)%8);
+        }
+
+
     }
 
 }
@@ -1859,6 +1915,7 @@ void Blank() {
 }
 
 void Intro() {
+    int i;
     if (frame == 0) {
         DrawPic(testpic,0,0,160,256);
     }
@@ -1901,6 +1958,16 @@ void Intro() {
     if (frame == 170) {
         render_text("Hour...?", 8, 240, 0);  // Display "Hour" at (0, 250)
     }
+
+    if (scenedta > 150) {
+        for(i=frame%4; i < 160<<8; i+=4) {
+            if (chunkyBuffer[i] > 0) {
+                chunkyBuffer[i]-=1;
+                chunkyBuffer[i]&=chunkyBuffer[i-1];
+            }
+        }
+    }
+
 }
 
 void Gps()
@@ -1912,7 +1979,7 @@ void Gps()
 
 int nowscene = 0;
 
-DrawFunc DrawFuncs[12] = {Blank, Blank, Intro, Lines, HeightMap, Raycast, Sidefly, Shock, Sidefly, Gps, Raycast, Blank};
+DrawFunc DrawFuncs[12] = {Blank, Blank, Intro, Lines, HeightMap, Sidefly, Raycast, Sidefly, Shock, Gps, Raycast, Blank};
 
 
 #define KEY_EXIT          0x01  // Q or ESC
@@ -2039,7 +2106,6 @@ void MainLoop() {
 
         DrawFuncs[nowscene]();
 
-//        render_text(numberToText(scene), 0, 240, 0);
 
         c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
 
