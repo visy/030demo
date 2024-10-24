@@ -39,6 +39,9 @@ UBYTE* flypic;
 UBYTE* testpic;
 UBYTE* shockpic;
 UBYTE* sideflypic;
+UBYTE* listrippic;
+UBYTE* gpspic;
+UBYTE* gps2pic;
 
 ULONG custompal[] = {
     256l << 16 + 0,
@@ -658,6 +661,32 @@ void DrawPic(UBYTE* pic, int x, int y, int picWidth, int picHeight) {
             if (destX >= 0 && destX < 160) {
                 pix = pic[pmul[j][picWidth] + i];
                 chunkyBuffer[ymul[destY] + destX] = pix;
+            }
+        }
+    }
+}
+
+void DrawPicT(UBYTE* pic, int x, int y, int picWidth, int picHeight) {
+    int i, j;
+    int destX;
+    int destY;
+    UBYTE pix;
+
+    // Loop through each pixel of the source picture
+    for (j = 0; j < picHeight; j++) {
+        destY = y + j;
+        if (destY < 0 || destY >= 256) continue;
+
+        for (i = 0; i < picWidth; i++) {
+            // Calculate the position in chunkyBuffer using the x, y coordinates
+            destX = x + i;
+
+            // Only draw if within screen bounds (160x256)
+            if (destX >= 0 && destX < 160) {
+                pix = pic[pmul[j][picWidth] + i];
+                if (pix != 144) {
+                    chunkyBuffer[ymul[destY] + destX] = pix;
+                }
             }
         }
     }
@@ -1309,6 +1338,52 @@ void Raycast() {
 
 }
 
+
+
+void RenderCheckerboard2(UBYTE color1, UBYTE color2) {
+    UBYTE x, y;
+    UBYTE currentColor;
+    int index = 0;
+    UBYTE *chunkyBufferPtr = chunkyBuffer;  // Pointer to chunky buffer for faster access
+    int diagBlock;
+    int lastDiagBlock = -1;
+    UBYTE adjustedColor1, adjustedColor2;    
+    UBYTE yFrame,xFrame;
+
+    for (y = frame&1; y < 128; y += 2) {  // Handle two rows at a time
+        index = ymul[y];  // Start index of the row
+        yFrame = y + frame;
+
+        for (x = 0; x < 160; x += 1) {  // Handle two pixels at a time
+            xFrame = x+frame;
+            diagBlock = diagBlockLookup[xFrame % MAX_FRAME][yFrame % MAX_FRAME];
+
+            // Check if we're in a new diamond block
+            if (diagBlock != lastDiagBlock) {
+                // Update colors only when we switch to a new diamond block
+                adjustedColor1 = color1 + (diagBlock & 0x07);  // Subtle variation for each diamond
+                adjustedColor2 = color2 + (diagBlock & 0x07);  // Same for color2
+                lastDiagBlock = diagBlock;  // Track the current diamond block
+            }
+
+            // Alternating color per diagonal block
+            currentColor = (diagBlock & 1) ? adjustedColor2 : adjustedColor1;
+
+            if (shockpic[index] == 64) { 
+                // Set the current and next pixel to the same color for two rows
+                chunkyBufferPtr[index] = currentColor;
+            }
+            if (shockpic[index+ymul[128]] == 64) { 
+                chunkyBufferPtr[index+ymul[128]] = currentColor;
+            }
+
+            // Increment the buffer index directly
+            index += 1;
+        }
+    }
+}
+
+
 void RenderCheckerboard(UBYTE color1, UBYTE color2) {
     UBYTE x, y;
     UBYTE currentColor;
@@ -1466,6 +1541,9 @@ void OnExit() {
     FreeVec(flypic);
     FreeVec(testpic);
     FreeVec(shockpic);
+    FreeVec(listrippic);
+    FreeVec(gpspic);
+    FreeVec(gps2pic);
     FreeVec(sideflypic);
     FreeVec(chei);
     FreeVec(cpic2);
@@ -1563,6 +1641,32 @@ int main(void) {
     }
 
     flypic = LoadTarga("fly2pic.tga",6);
+    if (flypic == NULL) {
+        Printf("failed to load fly2pic.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    listrippic = LoadTarga("listrip.tga",7);
+    if (listrippic == NULL) {
+        Printf("failed to load listrip.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    gpspic = LoadTarga("gps.tga",8);
+    if (gpspic == NULL) {
+        Printf("failed to load gps.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    gps2pic = LoadTarga("gps2.tga",9);
+    if (gps2pic == NULL) {
+        Printf("failed to load gps2.tga\n");
+        OnExit();
+        exit(1);
+    }
 
     LoadRGB32(&(mainScreen1->ViewPort), custompal);
 
@@ -1665,7 +1769,7 @@ void HeightMap()
 
     for (y = 0; y < 128; y++) {
         destPtr = &chunkyBuffer[ymul[y + 26 + off2] - 20 + off3]; // Pre-calculate the destination pointer base
-        for (x = 31; x < 32+56; x++) {
+        for (x = 31; x < 31+68; x++) {
             cc = flypic[(y << 7) + (x)]; // Access the source pixel
             destPtr[x] = (cc != 96) ? cc : destPtr[x]; // Use a ternary operator to avoid an explicit if statement
         }
@@ -1675,7 +1779,7 @@ void HeightMap()
 
 void Lines()
 {
-    int centerX = 80;
+    int centerX = 60;
     int centerY = 127;
     int width = 160+(sine[(dta<<1)&0xff]>>3);
     int height = 160+(sine[(dta<<1)&0xff]>>3);
@@ -1684,20 +1788,31 @@ void Lines()
     {
         memset(chunkyBuffer,0,160*256);
     }
-    for(i=frame%4; i < 160<<8; i+=4) {
-        if (chunkyBuffer[i] > 0)
-            chunkyBuffer[i]-=1;
-            chunkyBuffer[i]&=chunkyBuffer[i-1];
+
+    if (scenedta > 120) {
+        for(i=frame%4; i < 160<<8; i+=4) {
+            if (chunkyBuffer[i] > 0) {
+                chunkyBuffer[i]-=1;
+                chunkyBuffer[i]&=chunkyBuffer[i-1];
+            }
+        }
+    }
+    {
+        for (i = 0; i < 24; i++) {
+            rotrect(centerX, centerY, width-(i<<3), height-(i<<3), (frame+(i<<2))&0xff, i%15);
+        }
+
+        if (scenedta > 120) {
+
+            render_text("Magic", 10, 40, 1);
+            render_text("Circle", 10, 230, 1);
+        }
 
     }
-    
-    for (i = 0; i < 24; i++)
-        rotrect(centerX, centerY, width-(i<<3), height-(i<<3), (frame+(i<<2))&0xff, i%15);
 
-
-    render_text("Magic", 30, 40, 1);
-    render_text("Circle", 30, 230, 1);
-
+    if (scenedta < 120) {
+        DrawPicT(gps2pic,48,0,160,256);
+    }
 
 }
 
@@ -1715,8 +1830,23 @@ void Sidefly() {
 }
 
 void Shock() {
+    int x,y;
+    int picop;
     if (frame == 0) {
         DrawPic(shockpic,0,0,160,256);
+
+    }
+    RenderCheckerboard2(32+((frame>>1)&7), 33+((frame>>1)&7));
+
+    for (y=0;y<36;y++) {
+        for (x=0;x<160;x++) {
+            picop = y*45+((x+(frame<<1))%45);
+
+            if (shockpic[ymul[(y<<1)+96]+x] == 64) { 
+                chunkyBuffer[ymul[(y<<1)+96]+x] = listrippic[picop];
+                chunkyBuffer[ymul[(y<<1)+97]+x] = listrippic[picop];
+            }
+        }
     }
 
 }
@@ -1773,7 +1903,16 @@ void Intro() {
     }
 }
 
-DrawFunc DrawFuncs[10] = {Blank, Intro, HeightMap, Lines, Raycast, Sidefly, Shock, Blank, Blank, Blank};
+void Gps()
+{
+    if (frame == 0) {
+        DrawPic(gpspic, 0,0,160,256);
+    }
+}
+
+int nowscene = 0;
+
+DrawFunc DrawFuncs[12] = {Blank, Blank, Intro, Lines, HeightMap, Raycast, Sidefly, Shock, Sidefly, Gps, Raycast, Blank};
 
 
 #define KEY_EXIT          0x01  // Q or ESC
@@ -1885,7 +2024,6 @@ void MainLoop() {
         scenedta = scenedta + dt;
 
         scene = mt_E8Trigger;
-        scene = 2;
 
         if (scene == 8) {
             ex = 1;
@@ -1894,11 +2032,12 @@ void MainLoop() {
         if (oldscene != scene) {
             frame = 0;
             scenedta = 0;
+            nowscene++;
         }
 
         oldscene = scene;
 
-        DrawFuncs[scene]();
+        DrawFuncs[nowscene]();
 
 //        render_text(numberToText(scene), 0, 240, 0);
 
