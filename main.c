@@ -29,6 +29,7 @@ int ex = 0;
 ULONG st,et;
 UBYTE dt = 0;
 UWORD dta;
+UWORD scenedta = 0;
 
 // gfx buffers for allocating from file
 
@@ -36,6 +37,8 @@ UBYTE* cpic2;
 UBYTE* chei;
 UBYTE* flypic;
 UBYTE* testpic;
+UBYTE* shockpic;
+UBYTE* sideflypic;
 
 ULONG custompal[] = {
     256l << 16 + 0,
@@ -385,6 +388,8 @@ UBYTE sine[];
 int zmul[512][512];
 int zdiv[512][512];
 int zmod[512][512];
+int pmul[256][256];
+
 #define MAX_FRAME 256  // Define a maximum frame range for the lookup table
 
 int diagBlockLookup[MAX_FRAME][MAX_FRAME];  // Lookup table for diagBlock
@@ -642,14 +647,16 @@ void DrawPic(UBYTE* pic, int x, int y, int picWidth, int picHeight) {
 
     // Loop through each pixel of the source picture
     for (j = 0; j < picHeight; j++) {
+        destY = y + j;
+        if (destY < 0 || destY >= 256) continue;
+
         for (i = 0; i < picWidth; i++) {
             // Calculate the position in chunkyBuffer using the x, y coordinates
             destX = x + i;
-            destY = y + j;
 
             // Only draw if within screen bounds (160x256)
-            if (destX >= 0 && destX < 160 && destY >= 0 && destY < 256) {
-                pix = pic[j * picWidth + i];
+            if (destX >= 0 && destX < 160) {
+                pix = pic[pmul[j][picWidth] + i];
                 chunkyBuffer[ymul[destY] + destX] = pix;
             }
         }
@@ -1014,6 +1021,12 @@ void init_lookup_tables() {
         ymul[i] = i * 160;
     }
 
+    for(ii=0; ii < 256; ii++) {
+            for(i=0; i < 256; i++) {
+                pmul[ii][i] = ii*i;
+            }
+    }
+
     for(ii=0; ii < 512; ii++) {
         for(i=0; i < 512; i++) {
             zmod[ii][i] = (ii+1) % (i+1);
@@ -1306,12 +1319,12 @@ void RenderCheckerboard(UBYTE color1, UBYTE color2) {
     UBYTE adjustedColor1, adjustedColor2;    
     UBYTE yFrame,xFrame;
 
-    for (y = 0; y < 64; y += 1) {  // Handle two rows at a time
+    for (y = 0; y < 40; y += 2) {  // Handle two rows at a time
         index = ymul[(y << 1)];  // Start index of the row
         yFrame = y + frame;
 
         for (x = 0; x < 160; x += 1) {  // Handle two pixels at a time
-            xFrame = x;
+            xFrame = x+frame;
             diagBlock = diagBlockLookup[xFrame % MAX_FRAME][yFrame % MAX_FRAME];
 
             // Check if we're in a new diamond block
@@ -1452,6 +1465,8 @@ void OnExit() {
 
     FreeVec(flypic);
     FreeVec(testpic);
+    FreeVec(shockpic);
+    FreeVec(sideflypic);
     FreeVec(chei);
     FreeVec(cpic2);
     FreeVec(moddata);
@@ -1516,7 +1531,6 @@ int main(void) {
 
     moddata = LoadFile("esa3.mod", MEMF_CHIP);
 
-    flypic = LoadFile("flypic.raw", MEMF_CHIP);
     chei = LoadFile("chei.raw", MEMF_CHIP);
     cpic2 = LoadFile("cpic2.raw", MEMF_CHIP);
     for (ii=0;ii<256;ii++) {
@@ -1533,6 +1547,22 @@ int main(void) {
         OnExit();
         exit(1);
     }
+
+    shockpic = LoadTarga("shock.tga", 4);
+    if (shockpic == NULL) {
+        Printf("failed to load shock.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    sideflypic = LoadTarga("sidefly.tga", 5);
+    if (sideflypic == NULL) {
+        Printf("failed to load sidefly.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    flypic = LoadTarga("fly2pic.tga",6);
 
     LoadRGB32(&(mainScreen1->ViewPort), custompal);
 
@@ -1634,10 +1664,10 @@ void HeightMap()
     }
 
     for (y = 0; y < 128; y++) {
-        destPtr = &chunkyBuffer[ymul[y + 26 + off2] + 20 + off3]; // Pre-calculate the destination pointer base
-        for (x = 0; x < 64; x++) {
-            cc = flypic[(y << 7) + (x<<1)]; // Access the source pixel
-            destPtr[x] = (cc != 0x0F) ? cc : destPtr[x]; // Use a ternary operator to avoid an explicit if statement
+        destPtr = &chunkyBuffer[ymul[y + 26 + off2] - 20 + off3]; // Pre-calculate the destination pointer base
+        for (x = 31; x < 32+56; x++) {
+            cc = flypic[(y << 7) + (x)]; // Access the source pixel
+            destPtr[x] = (cc != 96) ? cc : destPtr[x]; // Use a ternary operator to avoid an explicit if statement
         }
     }
 
@@ -1672,14 +1702,30 @@ void Lines()
 }
 
 
-void Feedbakker() {
+void Sidefly() {
 
     if (frame == 0) {
-        memset(chunkyBuffer, 0, 320*256);
+        memset(chunkyBuffer, 0, 160*256);
     }
+
     RenderCheckerboard(0x03, 0x08);
 
-    render_text("Go Go Go?", 8, 240, 1);
+
+    DrawPic(sideflypic, -64+frame,128-40+(sine[(scenedta<<2)&255]>>4),64,64);
+}
+
+void Shock() {
+    if (frame == 0) {
+        DrawPic(shockpic,0,0,160,256);
+    }
+
+}
+
+void Blank() {
+    if (frame == 0) {
+        memset(chunkyBuffer, 0, 160*256);
+    }
+
 }
 
 void Intro() {
@@ -1725,10 +1771,9 @@ void Intro() {
     if (frame == 170) {
         render_text("Hour...?", 8, 240, 0);  // Display "Hour" at (0, 250)
     }
-
 }
 
-DrawFunc DrawFuncs[10] = {Intro, Intro, HeightMap, Lines, Raycast,Feedbakker, Feedbakker, Feedbakker, Feedbakker, Feedbakker};
+DrawFunc DrawFuncs[10] = {Blank, Intro, HeightMap, Lines, Raycast, Sidefly, Shock, Blank, Blank, Blank};
 
 
 #define KEY_EXIT          0x01  // Q or ESC
@@ -1837,8 +1882,10 @@ void MainLoop() {
         if (dt == 0) dt = 1;
         st = getMilliseconds();
         dta = dta + dt;
+        scenedta = scenedta + dt;
 
         scene = mt_E8Trigger;
+        scene = 2;
 
         if (scene == 8) {
             ex = 1;
@@ -1846,12 +1893,14 @@ void MainLoop() {
 
         if (oldscene != scene) {
             frame = 0;
+            scenedta = 0;
         }
 
         oldscene = scene;
+
         DrawFuncs[scene]();
 
-        render_text(numberToText(scene), 0, 240, 0);
+//        render_text(numberToText(scene), 0, 240, 0);
 
         c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
 
@@ -1877,12 +1926,11 @@ BOOL initScreen(struct BitMap **b, struct Screen **s)
         goto __exit_init_error;
     }
 
-    // create one screen which contains the demo logo
     *s = createScreen(*b, TRUE, 0, 0,
                       320, 256,
                       8, NULL);
     if (!*s) {
-        printf("Error: Could not allocate memory for logo screen\n");
+        printf("Error: Could not allocate memory for screen\n");
         goto __exit_init_bitmap;
     }
     return TRUE;
