@@ -26,7 +26,7 @@ int scene = 1;
 int oldscene = 1;
 int ex = 0;
 
-ULONG st,et;
+ULONG st,et = 0;
 UBYTE dt = 0;
 UWORD dta;
 UWORD scenedta = 0;
@@ -409,7 +409,9 @@ ULONG millis;
 ULONG st;
 
 struct Device* TimerBase;
-static struct IORequest timereq;
+
+struct MsgPort *timer_msgport;
+struct timerequest *timer_ioreq;
 
 static struct timeval startTime;
 
@@ -1501,9 +1503,23 @@ void rotrect(int centerX, int centerY, int width, int height, int angle, UBYTE c
 
  
 void startup() {
-    OpenDevice("timer.device", 0, &timereq, 0);
-    TimerBase = timereq.io_Device;
+    timer_msgport = CreateMsgPort();
+    timer_ioreq = CreateIORequest(timer_msgport, sizeof(*timer_ioreq));
+
+    OpenDevice("timer.device", UNIT_VBLANK, (APTR) timer_ioreq, 0);
+    TimerBase = (APTR) timer_ioreq->tr_node.io_Device;
     GetSysTime(&startTime);
+}
+
+static void closetimer(void){
+    if (TimerBase){
+        CloseDevice((APTR) timer_ioreq);
+    }
+    DeleteIORequest(timer_ioreq);
+    DeleteMsgPort(timer_msgport);
+    TimerBase = 0;
+    timer_ioreq = 0;
+    timer_msgport = 0;
 }
  
 ULONG getMilliseconds() {
@@ -1593,7 +1609,8 @@ void OnExit() {
 
     CloseScreen(mainScreen1);
     WaitTOF();
-    CloseDevice(&timereq);
+
+    closetimer();
 
     if (UtilityBase)  { CloseLibrary(UtilityBase); }
 
@@ -1723,12 +1740,12 @@ int main(void) {
     mt_mastervol(&custom, 0x40);
     mt_Enable = 1;
 
-    startup();
-
     ScreenToFront(currentScreen);
     WaitTOF();
 
     // ready to go to mainloop
+
+    startup();
 
     MainLoop();
 
@@ -1761,10 +1778,10 @@ void HeightMap()
         fillrect(0,0,160,94);
     }
 
-    py = -dta;
+    py = -dta>>5;
     px = -py;
-    off2 = sine[(64+(dta<<3))&0xff]>>5;
-    off3 = sine[(dta<<3)&0xff]>>5;
+    off2 = sine[(64+(dta>>3))&0xff]>>5;
+    off3 = sine[(dta>>3)&0xff]>>5;
 
     for(x=0;x<65;x++)
     {
@@ -1827,17 +1844,17 @@ void HeightMap()
 
 void Lines()
 {
-    int centerX = 60;
+    int centerX = 80+(sine[(dta>>3)&0xff]>>5);
     int centerY = 127;
-    int width = 160+(sine[(dta<<1)&0xff]>>3);
-    int height = 160+(sine[(dta<<1)&0xff]>>3);
+    int width = 160+(sine[(dta>>3)&0xff]>>3);
+    int height = 160+(sine[(dta>>3)&0xff]>>3);
     int i = 0;
     if (frame == 0) 
     {
         memset(chunkyBuffer,0,160*256);
     }
 
-    if (scenedta > 120) {
+    if (scenedta > 6500) {
         for(i=frame%4; i < 160<<8; i+=4) {
             if (chunkyBuffer[i] > 0) {
                 chunkyBuffer[i]-=1;
@@ -1845,25 +1862,26 @@ void Lines()
             }
         }
     }
+    if (scenedta >= 5000)
     {
         for (i = 0; i < 24; i++) {
-            rotrect(centerX, centerY, width-(i<<3), height-(i<<3), (frame+(i<<2))&0xff, i%15);
+            rotrect(centerX, centerY, width-(i<<3), height-(i<<3), ((scenedta>>4)+(i<<2))&0xff, i%15);
         }
 
-        if (scenedta > 120) {
+        if (scenedta > 6500) {
 
-            render_text("Magic", 10, 40, 1);
-            render_text("Circle", 10, 230, 1);
+            render_text("Magic", centerX-50, 40, 1);
+            render_text("Circle", centerX-50, 230, 1);
         }
 
     }
 
-    if (scenedta < 120) {
+    if (scenedta < 3600) {
         DrawPicT(gps2pic,48,0,160,256);
-        if (scenedta > 20) {
+        if (scenedta > 1600) {
         render_tinytext("Witchfinder" , 0, 60, 160);
         }
-        if (scenedta > 60) {
+        if (scenedta > 2400) {
         render_tinytext("Logging in..." , 0, 73, (frame>>1)%8);
         }
 
@@ -1882,7 +1900,7 @@ void Sidefly() {
     RenderCheckerboard(0x03, 0x08);
 
 
-    DrawPic(sideflypic, -64+frame,128-40+(sine[(scenedta<<2)&255]>>4),64,64);
+    DrawPic(sideflypic, -64+(scenedta>>5),128-40+(sine[(scenedta>>4)&255]>>4),64,64);
 }
 
 void Shock() {
@@ -1914,52 +1932,45 @@ void Blank() {
 
 }
 
+int textindex = 0;
+
+int t = 0;
+
 void Intro() {
     int i;
-    if (frame == 0) {
+    if (textindex == 0) {
         DrawPic(testpic,0,0,160,256);
     }
-    if (frame == 1) {
+    if (t >= 1000 && textindex == 0) {
         render_text("Quadtrip", 8, 34, 0);  // Display "Quadtrip" at (0, 50)
+        textindex++;
     }
 
     // Render "presents" after 50 frames
-    if (frame == 20) {
+    if (t >= 3500 && textindex == 1) {
         render_text("presents", 8, 80, 0);  // Display "presents" at (0, 100)
+        textindex++;
     }
 
     // Render "The" after 100 frames
-    if (frame == 70) {
+    if (t >= 5000 && textindex == 2) {
         render_text("The", 8, 160, 0);  // Display "The" at (0, 150)
+        textindex++;
     }
 
     // Render "Witching" after 150 frames
-    if (frame == 100) {
+    if (t >= 5500 && textindex == 3) {
         render_text("Witching", 8, 200, 0);  // Display "Witching" at (0, 200)
+        textindex++;
     }
 
     // Render "Hour" after 200 frames
-    if (frame == 130) {
+    if (t >= 6000 && textindex == 4) {
         render_text("Hour", 8, 240, 0);  // Display "Hour" at (0, 250)
+        textindex++;
     }
 
-    if (frame == 140) {
-        render_text("Hour.", 8, 240, 0);  // Display "Hour" at (0, 250)
-    }
-
-    if (frame == 150) {
-        render_text("Hour..", 8, 240, 0);  // Display "Hour" at (0, 250)
-    }
-
-    if (frame == 160) {
-        render_text("Hour...", 8, 240, 0);  // Display "Hour" at (0, 250)
-    }
-
-    if (frame == 170) {
-        render_text("Hour...?", 8, 240, 0);  // Display "Hour" at (0, 250)
-    }
-
-    if (scenedta > 150) {
+    if (t > 7000) {
         for(i=frame%4; i < 160<<8; i+=4) {
             if (chunkyBuffer[i] > 0) {
                 chunkyBuffer[i]-=1;
@@ -2054,6 +2065,8 @@ const char* numberToText(int num) {
     }
 }
 
+char textbuffer[128];
+
 void MainLoop() {
     int key = 0;
     int ray_x,ray_y,move_speed,new_ppx,new_ppy;
@@ -2084,10 +2097,14 @@ void MainLoop() {
         {
             ex = 1;
         }
-        dt = (et-st)>>5;
-        if (dt == 0) dt = 1;
         st = getMilliseconds();
+        if (et != 0) {
+            dt = (st-et);
+        }
+        et = st;
         dta = dta + dt;
+        t = dta;
+
         scenedta = scenedta + dt;
 
         scene = mt_E8Trigger;
@@ -2107,15 +2124,17 @@ void MainLoop() {
         DrawFuncs[nowscene]();
 
 
+///////////////// DEBUG
+//        snprintf(textbuffer, sizeof(textbuffer), "sct: %d", scenedta);
+
+//        memset(chunkyBuffer,0,160*10);
+//        render_tinytext(textbuffer, 0,0, 69);
+///////////////// DEBUG
         c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
 
-        et = getMilliseconds();
-
-
+        WaitTOF();
         frame++;
         totalframes++;
-
-        WaitTOF();
 
     }
 }
