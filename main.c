@@ -43,6 +43,33 @@ UBYTE* listrippic;
 UBYTE* gpspic;
 UBYTE* gps2pic;
 UBYTE* tinyfont;
+UBYTE* title;
+
+ULONG blackpal[] = {
+    16l << 16 + 0,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0x00000000, 0x00000000, 0x00000000,
+    0,0,0
+};
+
 
 ULONG custompal[] = {
     256l << 16 + 0,
@@ -1624,7 +1651,7 @@ void OnExit() {
 
 int main(void) {
     UWORD oldDMA;
-    int i,ii = 0;
+    int i,ii,j = 0;
     BPTR file_ptr;
     ULONG size;
 
@@ -1643,8 +1670,6 @@ int main(void) {
         exit(1);        
     }
 
-    init_lookup_tables();
-
     // hide mouse
     emptyPointer = AllocVec(22 * sizeof(UWORD), MEMF_CHIP | MEMF_CLEAR);
     my_wbscreen_ptr = LockPubScreen("Workbench");
@@ -1655,6 +1680,10 @@ int main(void) {
         OnExit();
         exit(1);
     }
+
+    LoadRGB32(&(mainScreen1->ViewPort), blackpal);
+
+    init_lookup_tables();
 
     bufferSelector = TRUE;
     currentScreen = mainScreen1;
@@ -1733,19 +1762,44 @@ int main(void) {
         exit(1);
     }
 
+    title = LoadTarga("title.tga",15);
+    if (title == NULL) {
+        Printf("failed to load title.tga\n");
+        OnExit();
+        exit(1);
+    }
+
     LoadRGB32(&(mainScreen1->ViewPort), custompal);
+    ScreenToFront(currentScreen);
+    WaitTOF();
+    DrawPic(title,0,0,160,256);
+    c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
+    for(i=0;i<128;i++) {
+        WaitTOF();
+    }
+
+    for(i=0;i<256;i++) {
+        for(j=239;j<=255;j++) {
+            if (custompal[1+(j*3)+0] > 0) custompal[1+(j*3)+0]-=0x01000000;
+            if (custompal[1+(j*3)+1] > 0) custompal[1+(j*3)+1]-=0x01000000;
+            if (custompal[1+(j*3)+2] > 0) custompal[1+(j*3)+2]-=0x01000000;
+        }
+        LoadRGB32(&(mainScreen1->ViewPort), custompal);
+        WaitTOF();
+    }
+
+    LoadRGB32(&(mainScreen1->ViewPort), blackpal);
 
     mt_install_cia(&custom, (APTR)App_GetVBR(), 1);
     mt_init(&custom, moddata, NULL, 0);
     mt_mastervol(&custom, 0x40);
     mt_Enable = 1;
 
-    ScreenToFront(currentScreen);
-    WaitTOF();
-
     // ready to go to mainloop
 
     startup();
+
+    LoadRGB32(&(mainScreen1->ViewPort), custompal);
 
     MainLoop();
 
