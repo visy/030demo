@@ -1042,9 +1042,9 @@ void render_tinytext(const char *text, int xpos, int ypos, UBYTE col) {
     }
 }
 
-int ppx = 8<<10;
-int ppy = 8<<10;
-int pdir = 1; // up, down, left, right
+int ppx = 6<<10;
+int ppy = 7<<10;
+int pdir = 2; // up, down, left, right
 
 
 UBYTE texture[32 * 32] = 
@@ -1086,18 +1086,18 @@ UBYTE texture[32 * 32] =
 UBYTE world_map[MAP_HEIGHT][MAP_WIDTH] = {
     {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
     {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,3,3,3,3,0,0,0,0,0,0,0,0,0,1},
-    {1,0,3,3,3,3,3,0,0,0,0,5,5,0,0,1},
-    {1,0,3,3,3,3,0,0,0,0,0,5,5,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,3,3,3,0,0,0,0,0,5,5,0,0,1},
+    {1,0,0,3,3,3,0,0,0,0,0,5,5,0,0,1},
     {1,0,6,6,6,6,0,0,0,0,0,0,0,0,0,1},
     {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,6,6,6,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,4,2,4,6,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,4,2,0,0,0,0,0,1,1,1,0,0,0,1},
     {1,0,2,0,2,0,0,0,0,0,2,7,0,0,7,2},
     {1,0,4,0,0,0,0,0,0,0,7,0,0,0,0,7},
-    {1,0,2,0,2,0,0,0,0,0,2,0,0,0,0,2},
-    {1,0,4,2,4,0,0,0,0,0,7,0,0,0,0,7},
-    {1,0,0,0,0,0,0,0,0,0,2,0,0,0,0,2},
+    {1,0,2,1,0,0,1,0,0,0,2,0,0,0,0,2},
+    {1,0,4,2,0,0,1,1,0,0,7,0,0,0,0,7},
+    {1,0,0,0,0,0,0,1,0,0,2,0,0,0,0,2},
     {1,0,0,0,0,0,0,0,0,0,7,0,0,0,0,7},
     {1,1,1,1,1,1,1,1,1,1,7,2,7,2,7,2},
 };
@@ -1106,9 +1106,13 @@ struct Library *UtilityBase;
 
 #define DiagShiftAmount 5
 
+UBYTE texture_lookup[32 * 32];
+
 void init_lookup_tables() {
     int i, ii;
     int xFrame, yFrame;
+    int texX, texY;
+
     for (xFrame = 0; xFrame < MAX_FRAME; xFrame++) {
         for (yFrame = 0; yFrame < MAX_FRAME; yFrame++) {
             diagBlockLookup[xFrame][yFrame] = ((xFrame + yFrame) >> DiagShiftAmount) ^ ((xFrame - yFrame) >> DiagShiftAmount);
@@ -1135,6 +1139,13 @@ void init_lookup_tables() {
 
     for (i = 1; i <= MAX_LINE_HEIGHT; i++) {
         reciprocal_table[i] = 4096 / i;  // Precompute reciprocal_line_height
+    }
+
+    // Precompute texture addresses for each possible texX, texY pair
+    for (texY = 0; texY < 32; texY++) {
+        for (texX = 0; texX < 32; texX++) {
+            texture_lookup[(texY << 5) + texX] = texture[(texY << 5) + texX];
+        }
     }
 
 }
@@ -1190,22 +1201,66 @@ void move_forward() {
     ppy = new_ppy;
 }
 
+void move_backward() {
+    int pdir_index1, pdir_frac, pdir_index2;
+    int ray_x1, ray_y1, ray_x2, ray_y2;
+    int ray_x, ray_y;
+    int move_speed;
+    int new_ppx, new_ppy;
+
+    // Calculate pdir indexes for interpolation (just like in Raycast)
+    pdir_index1 = (pdir - 1) >> 1;    // Equivalent to (pdir - 1) / 2
+    pdir_frac = (pdir - 1) & 1;       // 0 if even, 1 if odd
+    pdir_index2 = pdir_index1 + 1;
+
+    if (pdir_index2 >= 133) {
+        pdir_index2 = 0;  // Wrap around
+    }
+
+    // Retrieve precomputed ray directions from lookup tables (scaled by 128)
+    ray_x1 = lookup_tables[pdir_index1][200][0];
+    ray_y1 = lookup_tables[pdir_index1][200][1];
+    ray_x2 = lookup_tables[pdir_index2][200][0];
+    ray_y2 = lookup_tables[pdir_index2][200][1];
+
+    // Interpolate between the two directions if necessary
+    if (pdir_frac == 0) {
+        ray_x = ray_x1;
+        ray_y = ray_y1;
+    } else {
+        ray_x = (ray_x1 + ray_x2) >> 1;
+        ray_y = (ray_y1 + ray_y2) >> 1;
+    }
+
+    // Adjust the movement speed (scaled by 128)
+    move_speed = 128;  // Define MOVE_SPEED as needed
+
+    // Move the player forward based on the interpolated ray direction
+    new_ppx = ppx - (ray_x * move_speed / 128);
+    new_ppy = ppy - (ray_y * move_speed / 128);
+
+    // Update player position (you can add collision checks here)
+    ppx = new_ppx;
+    ppy = new_ppy;
+}
+
+#define DIST 10
+
+
 void Raycast() {
-    UBYTE ray;
+    int ray;
     UBYTE col;
     int test_x, test_y;
-    register int step_x;
-    register int step_y;
+    int step_x, step_y;
     int map_x, map_y, distance;
     UBYTE line_start, line_end, line_height;
-    UBYTE hit = 0;
+    UBYTE hit;
     UBYTE delta_texY;
-    register int ray_x;
-    register int ray_y;
-    int scaled_screen_height = 0;  // Pre-multiplied value for screen height scaling
-    int temp_distance = 0;
-    int shift_amount = 0;
-    int side;  // 0 = vertical wall, 1 = horizontal wall
+    int ray_x, ray_y;
+    int scaled_screen_height;
+    int temp_distance;
+    int shift_amount;
+    int side;
     int prev_map_x, prev_map_y;
     int texX, texY;
     int reciprocal_line_height;
@@ -1217,124 +1272,89 @@ void Raycast() {
     UBYTE next_cc;
     int horizon_line;
     int cell_offset_x, cell_offset_y;
-        // Variables for pdir interpolation
     int pdir_index1, pdir_index2;
     int ray_x1, ray_x2, ray_y1, ray_y2;
     int pdir_frac;
-    int line_gap = 16;  // Initial gap between lines
+    int line_gap;
 
-    #define DIST 10
+    line_gap = 16;  // Initial gap between lines
 
-    // Clear or update the screen buffer as needed
     if (frame == 0) {
         memset(chunkyBuffer, 0, SCREEN_HEIGHT * SCREEN_WIDTH);
-    } else {
-            horizon_line = SCREEN_HEIGHT >> 1;
+    }
+    {
+        horizon_line = SCREEN_HEIGHT >> 1;
+        memset(chunkyBuffer, 4, ymul[horizon_line]);
+        memset(chunkyBuffer + ymul[horizon_line], 8, ymul[SCREEN_HEIGHT - horizon_line]);
 
-            // Fill ceiling
-            memset(chunkyBuffer, 4, ymul[horizon_line]);
-
-            // Fill floor
-            memset(chunkyBuffer + ymul[horizon_line], 8, ymul[(SCREEN_HEIGHT - horizon_line)]);
-
-            for (y = horizon_line; y<SCREEN_HEIGHT; y+=line_gap) {
-                memset(chunkyBuffer + ymul[y], 0, SCREEN_WIDTH);
-
-                if (line_gap > 1) {
-                    line_gap -= 1;  // Reduce gap size gradually to create perspective effect
-                }
-            }
+        for (y = horizon_line; y < SCREEN_HEIGHT; y += line_gap) {
+            memset(chunkyBuffer + ymul[y], 0, SCREEN_WIDTH);
+            if (line_gap > 1) line_gap--;
+        }
     }
 
-    pdir_index1 = (pdir - 1) >> 1;     // Equivalent to (pdir - 1) / 2
-    pdir_frac = (pdir - 1) & 1;        // 0 if even, 1 if odd
+    pdir_index1 = (pdir - 1) >> 1;
+    pdir_frac = (pdir - 1) & 1;
     pdir_index2 = pdir_index1 + 1;
-    if (pdir_index2 >= 133) {
-        pdir_index2 = 0;  // Wrap around
-    }
+    if (pdir_index2 >= 133) pdir_index2 = 0;
 
     for (ray = 0; ray < SCREEN_WIDTH; ray += 2) {
-        // Retrieve precomputed ray directions
         ray_x1 = lookup_tables[pdir_index1][ray][0];
         ray_y1 = lookup_tables[pdir_index1][ray][1];
         ray_x2 = lookup_tables[pdir_index2][ray][0];
         ray_y2 = lookup_tables[pdir_index2][ray][1];
 
         if (pdir_frac == 0) {
-            // No interpolation needed
             ray_x = ray_x1;
             ray_y = ray_y1;
         } else {
-            // Interpolate between ray_x1 and ray_x2
             ray_x = (ray_x1 + ray_x2) >> 1;
             ray_y = (ray_y1 + ray_y2) >> 1;
         }
 
-        // Initialize variables
-        test_x = ppx;  // Player's position scaled
+        test_x = ppx;
         test_y = ppy;
         step_x = ray_x;
         step_y = ray_y;
         distance = 0;
         hit = 0;
         side = 0;
-
-        // Compute initial map positions
         map_x = test_x >> DIST;
         map_y = test_y >> DIST;
 
         while (!hit && distance < (MAX_DEPTH << 8)) {
-            // Store previous map positions
             prev_map_x = map_x;
             prev_map_y = map_y;
-
-            // Incrementally update test_x and test_y
             test_x += step_x;
             test_y += step_y;
-
-            // Compute new map positions
             map_x = test_x >> DIST;
             map_y = test_y >> DIST;
-
-            cell_offset_x = test_x & (1024 - 1);  // scale_factor = 1024
+            cell_offset_x = test_x & (1024 - 1);
             cell_offset_y = test_y & (1024 - 1);
+            cell_offset_x = step_x >> 31 ? (1024 - cell_offset_x) : cell_offset_x;
+            cell_offset_y = step_y >> 31 ? (1024 - cell_offset_y) : cell_offset_y;
+            side = (cell_offset_x - cell_offset_y) >> 31 & 1;
+            side |= !(world_map[map_y][prev_map_x] == 0) & 1;
+            side &= (world_map[prev_map_y][map_x] == 0) | 0;
 
-            // Adjust for direction without conditionals or branching
-            cell_offset_x = step_x >> 31 ? (1024 - cell_offset_x) : cell_offset_x;  // Step_x < 0 adjustment
-            cell_offset_y = step_y >> 31 ? (1024 - cell_offset_y) : cell_offset_y;  // Step_y < 0 adjustment
-
-            // Determine the side based on the smaller offset (without conditionals)
-            side = (cell_offset_x - cell_offset_y) >> 31 & 1;  // 0 for vertical wall, 1 for horizontal wall
-
-            // Use logical AND to check for neighboring walls
-            side |= !(world_map[map_y][prev_map_x] == 0) & 1;  // Vertical wall check
-            side &= (world_map[prev_map_y][map_x] == 0) | 0;   // Horizontal wall check
-
-            // Collision check
             if (map_x >= 0 && map_x < MAP_WIDTH && map_y >= 0 && map_y < MAP_HEIGHT) {
                 col = world_map[map_y][map_x];
-                if (col > 0) {
-                    hit = 1;
-                }
+                if (col > 0) hit = 1;
             }
 
-            // Increment the distance by the scaled step size (integer only)
-            distance += (1024 >> DIST);  // Equivalent to adding 1 unit
+            distance += (1024 >> DIST);
         }
 
         if (hit) {
-            // Calculate the height of the line to draw on screen
-            scaled_screen_height = SCREEN_HEIGHT << 4;  // Pre-multiply by 8
+            scaled_screen_height = SCREEN_HEIGHT << 4;
             line_height = 0;
             temp_distance = distance;
             shift_amount = 0;
 
-            // Calculate line height using bit shifting
             while ((temp_distance << 1) <= scaled_screen_height) {
                 temp_distance <<= 1;
                 shift_amount++;
             }
-
             while (shift_amount >= 0) {
                 if (scaled_screen_height >= temp_distance) {
                     scaled_screen_height -= temp_distance;
@@ -1344,66 +1364,62 @@ void Raycast() {
                 shift_amount--;
             }
 
-            // Calculate line start and end positions
             line_start = (SCREEN_HEIGHT >> 1) - (line_height >> 1);
             line_end = (SCREEN_HEIGHT >> 1) + (line_height >> 1);
-
             reciprocal_line_height = reciprocal_table[line_height];
             delta_texY = reciprocal_line_height;
             texY = 0;
 
-            // Texture mapping
-            if (side == 0) {
-                texX = (test_y >> 5) & 31;  // Adjusted for 16x16 texture size
-            } else {
-                texX = (test_x >> 5) & 31;
-            }
+            if (side == 0) texX = (test_y >> 5) & 31;
+            else texX = (test_x >> 5) & 31;
 
-            // Initialize variables for span rendering
             y = line_start;
             while (y <= line_end) {
-                // Get the current color from the texture
-                cc = texture[(((texY >> 8) & 31) << 5) + texX]-2;
-                if (side == 1) {
-                    cc += 6;
-                }
-
-                // Start of the color span
+                cc = texture_lookup[((texY >> 8) & 31) << 5 | texX] - 2;
+                if (side == 1) cc += 6;
                 span_start = y;
                 span_texY = texY;
 
-                // Advance y and texY while the color remains the same
                 while (1) {
                     y++;
                     texY += delta_texY;
-
-                    if (y >= line_end) {
-                        break;  // Reached the end of the line
-                    }
-
-                    // Get the next color
-                    next_cc = texture[(((texY >> 8) & 31) << 5) + texX]-2;
-
-                    if (side == 1) {
-                        next_cc += 6;
-                    }
-
-                    // Check if the color has changed
-                    if (next_cc != cc) {
-                        break;  // End of the current color span
-                    }
+                    if (y >= line_end) break;
+                    next_cc = texture_lookup[((texY >> 8) & 31) << 5 | texX] - 2;
+                    if (side == 1) next_cc += 6;
+                    if (next_cc != cc) break;
                 }
 
-                // Calculate the span height
-                span_height = y - span_start+1;
-
-                // Draw the vertical line span using vline1
-                vline(chunkyBuffer + ymul[span_start] + ray, cc<<8|cc, span_height);
+                span_height = y - span_start + 1;
+                vline(chunkyBuffer + ymul[span_start] + ray, cc << 8 | cc, span_height);
             }
         }
     }
 
     render_text("Top Floor?", 0, 80, 0);
+
+    if (scenedta < 10) {
+        ppx = 6<<10;
+        ppy = 7<<10;
+        pdir = 2;
+    }
+
+    if (scenedta > 1000 && scenedta < 3000) {
+        move_forward();
+    }
+
+    if (scenedta > 4000 && scenedta < 6000) {
+        pdir-=2;
+        if (pdir <= 0) pdir = 266;
+    }
+
+    if (scenedta > 6500 && scenedta < 9500) {
+        pdir+=2;
+        if (pdir > 266) pdir = 1;
+    }
+
+    if (scenedta > 9500 && scenedta < 11500) {
+        move_backward();
+    }
 
 }
 
@@ -1768,7 +1784,6 @@ int main(void) {
         OnExit();
         exit(1);
     }
-
     LoadRGB32(&(mainScreen1->ViewPort), custompal);
     ScreenToFront(currentScreen);
     WaitTOF();
@@ -2044,7 +2059,7 @@ void Gps()
 
 int nowscene = 0;
 
-DrawFunc DrawFuncs[12] = {Blank, Blank, Intro, Lines, HeightMap, Sidefly, Raycast, Sidefly, Shock, Gps, Raycast, Blank};
+DrawFunc DrawFuncs[12] = {Blank, Blank, Intro, Lines, Sidefly, HeightMap, Raycast, Sidefly, Shock, Gps, Raycast, Blank};
 
 
 #define KEY_EXIT          0x01  // Q or ESC

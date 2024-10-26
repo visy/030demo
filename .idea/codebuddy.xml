@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CodebuddyPersistentProjectState">
+    <option name="autoFileMode" value="CURRENT_OPEN" />
+    <option name="promptHistory">
+      <list>
+        <option value="Optimize this function to run as fast as possible on 68030 Amiga. Assume we have plenty of memory to allocate (AllocVec style) for lookups as needed. We want fast rendering speed" />
+        <option value="optimize Raycast()" />
+      </list>
+    </option>
+    <option name="selectedModel" value="codebuddy:GPT4_Turbo_Haiku_V7" />
+    <option name="ttsEnabled" value="false" />
+  </component>
+</project>
