@@ -1179,7 +1179,7 @@ void move_forward() {
     }
 
     // Adjust the movement speed (scaled by 128)
-    move_speed = 64;  // Define MOVE_SPEED as needed
+    move_speed = 128;  // Define MOVE_SPEED as needed
 
     // Move the player forward based on the interpolated ray direction
     new_ppx = ppx + (ray_x * move_speed / 128);
@@ -1232,10 +1232,10 @@ void Raycast() {
             horizon_line = SCREEN_HEIGHT >> 1;
 
             // Fill ceiling
-            memset(chunkyBuffer+ymul[32], 4, ymul[horizon_line-32]);
+            memset(chunkyBuffer, 4, ymul[horizon_line]);
 
             // Fill floor
-            memset(chunkyBuffer + ymul[horizon_line], 8, ymul[(SCREEN_HEIGHT - horizon_line-32)]);
+            memset(chunkyBuffer + ymul[horizon_line], 8, ymul[(SCREEN_HEIGHT - horizon_line)]);
 
             for (y = horizon_line; y<SCREEN_HEIGHT; y+=line_gap) {
                 memset(chunkyBuffer + ymul[y], 0, SCREEN_WIDTH);
@@ -2136,13 +2136,13 @@ void MainLoop() {
         }
 
         if (key == 4) {
-            pdir--;
+            pdir-=2;
 
             if (pdir <= 0) pdir = 266;
         }
 
         if (key == 5) {
-            pdir++;
+            pdir+=2;
             if (pdir > 266) pdir = 1;
         }
 
