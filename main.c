@@ -19,6 +19,7 @@
 unsigned int reciprocal_table[MAX_LINE_HEIGHT + 1];
 
 #include "ray_lookup.h"
+#include "quadansi.h"
 
 typedef void (*DrawFunc)(void);
 
@@ -1347,7 +1348,7 @@ void Raycast() {
         if (pdir < 0) pdir += 267;  // Wrap around if pdir goes negative
     }
 
-    if (scenedta > 9500 && scenedta < 11500) {
+    if (scenedta > 9000 && scenedta < 11500) {
         move_backward();
         target_pdir = 140;
         last_pdir = lerp(last_pdir, target_pdir, scenedta - 9500, 11500 - 9500);
@@ -1515,10 +1516,10 @@ void Raycast() {
     if (scenedta > 1000 && scenedta < 3000) {
         render_text("ACTIVATE", 7, 128, 0);
     }
-    if (scenedta > 4000 && scenedta <= 7500) {
+    if (scenedta > 4000 && scenedta <= 8500) {
         render_text("Delivery", 16, 128, 0);
     }
-    if (scenedta > 6500 && scenedta < 7500) {
+    if (scenedta > 6500 && scenedta < 8500) {
         render_text("   Mode", 16, 128+32, 0);
     }
 
@@ -1778,6 +1779,12 @@ int main(void) {
     BPTR file_ptr;
     ULONG size;
 
+    printf(quadansi);
+
+    for(i=0;i<128;i++) {
+        WaitTOF();
+    }
+
     // load and initialize everything
 
     SysBase = *((struct ExecBase **)4);
@@ -1900,13 +1907,13 @@ int main(void) {
 
     init_lookup_tables();
 
-
     title = LoadTarga("title.tga",15);
     if (title == NULL) {
         Printf("failed to load title.tga\n");
         OnExit();
         exit(1);
     }
+
     LoadRGB32(&(mainScreen1->ViewPort), custompal);
     ScreenToFront(currentScreen);
     WaitTOF();
@@ -1924,7 +1931,7 @@ int main(void) {
         }
         LoadRGB32(&(mainScreen1->ViewPort), custompal);
 
-        for(i=0;i<160;i+=4) {
+        for(i=0;i<160;i+=8) {
             chunkyBuffer[ymul[ii]+i]|=chunkyBuffer[ymul[ii]+i+1];
             chunkyBuffer[ymul[ii]+i+3]|=chunkyBuffer[ymul[ii]+i+2];
         }
@@ -2061,11 +2068,16 @@ void HeightMap()
 
 void Lines()
 {
-    int centerX = 80+(sine[(dta>>3)&0xff]>>5);
+    int centerX = 56+(sine[(dta>>3)&0xff]>>5);
     int centerY = 127;
     int width = 160+(sine[(dta>>3)&0xff]>>3);
     int height = 160+(sine[(dta>>3)&0xff]>>3);
     int i = 0;
+    int linec = (scenedta-5000)>>7;
+
+    if (linec >= 24) {
+        linec = 24;
+    }
     if (frame == 0) 
     {
         memset(chunkyBuffer,0,160*256);
@@ -2081,14 +2093,22 @@ void Lines()
     }
     if (scenedta >= 5000)
     {
-        for (i = 0; i < 24; i++) {
+        for (i = 24; i > 24-linec; i--) {
             rotrect(centerX, centerY, width-(i<<3), height-(i<<3), ((scenedta>>4)+(i<<2))&0xff, i%15);
         }
 
-        if (scenedta > 6500) {
+        if (scenedta > 7500) {
 
             render_text("Magic", centerX-50, 40, 1);
+        }
+        if (scenedta > 8500) {
             render_text("Circle", centerX-50, 230, 1);
+        }
+
+        if (scenedta > 9000) {
+            render_tinytext("Same Day Guaranteed" , 0, 120, 31);
+            render_tinytext(" Dungeon Delivery" , 0, 130, 31);
+
         }
 
     }
@@ -2118,6 +2138,10 @@ void Sidefly() {
 
 
     DrawPic(sideflypic, -64+(scenedta>>5),128-40+(sine[(scenedta>>4)&255]>>4),64,64);
+
+    render_tinytext("Standard takeoff procedure" , 2, 238, 0);
+    render_tinytext("Standard takeoff procedure" , 3, 239, 31);
+
 }
 
 void Shock() {
@@ -2139,6 +2163,9 @@ void Shock() {
             }
         }
     }
+
+    render_tinytext("review */***** not arrived" , 2, 20, 0);
+    render_tinytext("review */***** not arrived" , 3, 21, 31);
 
 }
 
