@@ -25,6 +25,7 @@ typedef void (*DrawFunc)(void);
 int scene = 1;
 int oldscene = 1;
 int ex = 0;
+int nowscene = 0;
 
 ULONG st,et = 0;
 UBYTE dt = 0;
@@ -1072,7 +1073,7 @@ void render_tinytext(const char *text, int xpos, int ypos, UBYTE col) {
 
 int ppx = 6<<10;
 int ppy = 7<<10;
-int pdir = 2; // up, down, left, right
+int pdir = 1; // up, down, left, right
 
 
 UBYTE texture[32 * 32] = 
@@ -1112,22 +1113,22 @@ UBYTE texture[32 * 32] =
 };
 
 UBYTE world_map[MAP_HEIGHT][MAP_WIDTH] = {
-    {1,1,1,1,2,1,1,1,1,1,2,1,2,1,2,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,2},
+    {1,1,1,1,2,1,1,2,2,1,2,1,2,1,2,1},
+    {2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {2,0,0,0,0,0,0,0,0,0,0,1,1,1,0,2},
     {1,0,0,1,2,1,0,0,0,0,0,1,1,1,0,1},
-    {1,0,0,1,1,1,0,0,0,0,0,1,0,0,0,2},
-    {1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,1,1,2,0,0,0,0,0,1,0,0,0,2},
+    {1,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1},
     {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,2},
+    {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,1,1,2,1,0,0,0,0,0,0,0,0,0,2},
     {1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,1},
-    {1,0,1,0,0,0,1,0,0,0,1,0,2,0,0,2},
-    {2,0,1,1,0,0,1,0,0,0,1,0,1,0,0,1},
+    {1,0,1,0,0,0,2,0,0,0,1,0,2,0,0,2},
+    {2,0,1,1,0,0,2,0,0,0,1,0,1,0,0,1},
     {1,0,1,1,0,0,1,1,0,0,2,0,2,0,0,2},
     {1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,1},
     {1,0,0,0,0,0,0,0,0,0,2,0,2,0,0,1},
-    {1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1},
+    {1,1,1,1,2,1,1,2,2,1,1,2,1,1,1,1},
 };
 
 struct Library *UtilityBase;
@@ -1220,7 +1221,7 @@ void move_forward() {
     }
 
     // Adjust the movement speed (scaled by 128)
-    move_speed = 128;  // Define MOVE_SPEED as needed
+    move_speed = (128*dt)>>6;  // Define MOVE_SPEED as needed
 
     // Move the player forward based on the interpolated ray direction
     new_ppx = ppx + (ray_x * move_speed / 128);
@@ -1263,7 +1264,7 @@ void move_backward() {
     }
 
     // Adjust the movement speed (scaled by 128)
-    move_speed = 128;  // Define MOVE_SPEED as needed
+    move_speed = (128*dt)>>6;  // Define MOVE_SPEED as needed
 
     // Move the player forward based on the interpolated ray direction
     new_ppx = ppx - (ray_x * move_speed / 128);
@@ -1275,6 +1276,15 @@ void move_backward() {
 }
 
 #define DIST 10
+
+int32_t lerp(int32_t start, int32_t end, int32_t delta_ms, int32_t duration_ms) {
+    int32_t range;
+    if (delta_ms <= 0) return start;           // If called too early, return start value
+    if (delta_ms >= duration_ms) return end;    // If called too late, return end value
+
+    range = end - start;
+    return start + (range * delta_ms / duration_ms);
+}
 
 UBYTE* curTex;
 void Raycast() {
@@ -1303,11 +1313,68 @@ void Raycast() {
     int horizon_line;
     int cell_offset_x, cell_offset_y;
     int pdir_index1, pdir_index2;
+    int last_pdir, target_pdir;
     int ray_x1, ray_x2, ray_y1, ray_y2;
     int pdir_frac;
     int line_gap;
     int offcol;
 
+    if (scenedta < 10) {
+        ppx = 6<<10;
+        ppy = 7<<10;
+        pdir = 1;
+        last_pdir = 1;
+    }
+
+    if (scenedta > 1000 && scenedta < 3000) {
+        move_forward();
+    }
+
+
+    target_pdir = 60;
+    last_pdir = pdir;
+
+    if (scenedta >= 3000 && scenedta < 5000) {
+        last_pdir = lerp(last_pdir, target_pdir, scenedta - 3000, 5000 - 3000);
+        pdir = -last_pdir;
+        if (pdir < 0) pdir += 267;  // Wrap around if pdir goes negative
+    }
+
+    if (scenedta >= 5500 && scenedta < 9500) {
+        target_pdir = 160;
+        last_pdir = lerp(last_pdir, target_pdir, scenedta - 5500, 9500 - 5500);
+        pdir = last_pdir;
+        if (pdir < 0) pdir += 267;  // Wrap around if pdir goes negative
+    }
+
+    if (scenedta > 9500 && scenedta < 11500) {
+        move_backward();
+        target_pdir = 140;
+        last_pdir = lerp(last_pdir, target_pdir, scenedta - 9500, 11500 - 9500);
+        pdir = last_pdir;
+        if (pdir < 0) pdir += 267;  // Wrap around if pdir goes negative
+    }
+
+    if (scenedta >= 11500 && scenedta < 14000) {
+        move_forward();
+        target_pdir = 145;
+        last_pdir = lerp(last_pdir, target_pdir, scenedta - 11500, 14000 - 11500);
+        pdir = last_pdir;
+        if (pdir < 0) pdir += 267;  // Wrap around if pdir goes negative
+    }
+
+/*
+    if (scenedta > 6500 && scenedta < 10500) {
+        pdir+=((dt<<5)/768);
+        if (pdir > 266) pdir = 1;
+    }
+
+    if (scenedta > 11000 && scenedta < 13500) {
+        pdir-=((dt<<5)/768);
+        if (pdir <= 0) pdir = 266;
+        move_backward();
+    }
+*/
     line_gap = 16;  // Initial gap between lines
 
     if (frame == 0) {
@@ -1439,38 +1506,28 @@ void Raycast() {
         }
     }
 
-
-    if (scenedta < 10) {
-        ppx = 6<<10;
-        ppy = 7<<10;
-        pdir = 2;
+    if (scenedta > 1500 && scenedta < 6500 && nowscene > 7) {
+        render_tinytext("code+music visy - gfx kide" , 2, 20, 161);
+        render_tinytext("code+music visy - gfx kide" , 3, 21, 31);
     }
+
 
     if (scenedta > 1000 && scenedta < 3000) {
-        move_forward();
-        render_text("Dungeons?", 0, 28, 0);
-
+        render_text("ACTIVATE", 7, 128, 0);
+    }
+    if (scenedta > 4000 && scenedta <= 7500) {
+        render_text("Delivery", 16, 128, 0);
+    }
+    if (scenedta > 6500 && scenedta < 7500) {
+        render_text("   Mode", 16, 128+32, 0);
     }
 
-    if (scenedta > 4000 && scenedta < 6000) {
-        pdir-=2;
-        if (pdir <= 0) pdir = 266;
-        render_text("   or", 0, 28, 0);
 
-
+    if (scenedta > 10500 && scenedta < 16000) {
+        render_tinytext("Guess I'll leave it here..." , 0, 20, 161);
+        render_tinytext("Guess I'll leave it here..." , 1, 21, 31);
     }
 
-    if (scenedta > 6500 && scenedta < 10500) {
-        pdir+=2;
-        if (pdir > 266) pdir = 1;
-        render_text("Dragons?", 0, 28, 0);
-    }
-
-    if (scenedta > 11000 && scenedta < 13000) {
-        pdir-=2;
-        if (pdir <= 0) pdir = 266;
-        move_backward();
-    }
 }
 
 void RenderCheckerboard2(UBYTE color1, UBYTE color2) {
@@ -1859,13 +1916,19 @@ int main(void) {
         WaitTOF();
     }
 
-    for(i=0;i<256;i++) {
+    for(ii=0;ii<256;ii++) {
         for(j=239;j<=255;j++) {
             if (custompal[1+(j*3)+0] > 0) custompal[1+(j*3)+0]-=0x01000000;
             if (custompal[1+(j*3)+1] > 0) custompal[1+(j*3)+1]-=0x01000000;
             if (custompal[1+(j*3)+2] > 0) custompal[1+(j*3)+2]-=0x01000000;
         }
         LoadRGB32(&(mainScreen1->ViewPort), custompal);
+
+        for(i=0;i<160;i+=4) {
+            chunkyBuffer[ymul[ii]+i]|=chunkyBuffer[ymul[ii]+i+1];
+            chunkyBuffer[ymul[ii]+i+3]|=chunkyBuffer[ymul[ii]+i+2];
+        }
+        c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
         WaitTOF();
     }
 
@@ -2111,7 +2174,6 @@ void Gps()
     }
 }
 
-int nowscene = 0;
 
 DrawFunc DrawFuncs[12] = {Blank, Blank, Intro, Lines, Sidefly, HeightMap, Raycast, Sidefly, Shock, Gps, Raycast, Blank};
 
