@@ -30,6 +30,7 @@ ULONG st,et = 0;
 UBYTE dt = 0;
 UWORD dta;
 UWORD scenedta = 0;
+UWORD alkudta = 0;
 
 // gfx buffers for allocating from file
 
@@ -44,6 +45,8 @@ UBYTE* gpspic;
 UBYTE* gps2pic;
 UBYTE* tinyfont;
 UBYTE* title;
+UBYTE* door;
+UBYTE* witch;
 
 ULONG blackpal[] = {
     16l << 16 + 0,
@@ -696,6 +699,31 @@ void DrawPic(UBYTE* pic, int x, int y, int picWidth, int picHeight) {
     }
 }
 
+
+void DrawPicV(UBYTE* pic, int x, int y, int picWidth, int picHeight) {
+    int i, j;
+    int destX;
+    int destY;
+    UBYTE pix;
+
+    // Loop through each pixel of the source picture
+    for (j = 0; j < picHeight; j++) {
+        destY = y + j;
+        if (destY < 0 || destY >= 256) continue;
+
+        for (i = 0; i < picWidth; i++) {
+            // Calculate the position in chunkyBuffer using the x, y coordinates
+            destX = x + i;
+
+            // Only draw if within screen bounds (160x256)
+            if (destX >= 0 && destX < 160) {
+                pix = pic[pmul[j>>1][picWidth] + (i)];
+                chunkyBuffer[ymul[destY] + destX] = pix;
+            }
+        }
+    }
+}
+
 void DrawPicT(UBYTE* pic, int x, int y, int picWidth, int picHeight) {
     int i, j;
     int destX;
@@ -1017,7 +1045,7 @@ void render_tinychar(char ch, int xpos, int ypos, UBYTE col) {
     for (y = 0; y < 5; y++) {
         for (x = 0; x < 5; x++) {
             pix = tinyfont[(((char_y+y)*96))+(char_x+x+1)];
-            if (pix != 160) {
+            if (pix != 224) {
                 chunkyBuffer[ymul[ypos+(y<<1)]+xpos+x] = col;
                 chunkyBuffer[ymul[ypos+(y<<1)+1]+xpos+x] = col;
             }
@@ -1084,22 +1112,22 @@ UBYTE texture[32 * 32] =
 };
 
 UBYTE world_map[MAP_HEIGHT][MAP_WIDTH] = {
-    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+    {1,1,1,1,2,1,1,1,1,1,2,1,2,1,2,1},
     {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,2},
+    {1,0,0,1,2,1,0,0,0,0,0,1,1,1,0,1},
+    {1,0,0,1,1,1,0,0,0,0,0,1,0,0,0,2},
+    {1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2},
     {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,3,3,3,0,0,0,0,0,5,5,0,0,1},
-    {1,0,0,3,3,3,0,0,0,0,0,5,5,0,0,1},
-    {1,0,6,6,6,6,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,4,2,0,0,0,0,0,1,1,1,0,0,0,1},
-    {1,0,2,0,2,0,0,0,0,0,2,7,0,0,7,2},
-    {1,0,4,0,0,0,0,0,0,0,7,0,0,0,0,7},
-    {1,0,2,1,0,0,1,0,0,0,2,0,0,0,0,2},
-    {1,0,4,2,0,0,1,1,0,0,7,0,0,0,0,7},
-    {1,0,0,0,0,0,0,1,0,0,2,0,0,0,0,2},
-    {1,0,0,0,0,0,0,0,0,0,7,0,0,0,0,7},
-    {1,1,1,1,1,1,1,1,1,1,7,2,7,2,7,2},
+    {1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,2},
+    {1,0,1,0,1,0,1,0,0,0,0,0,1,0,1,1},
+    {1,0,1,0,0,0,1,0,0,0,1,0,2,0,0,2},
+    {2,0,1,1,0,0,1,0,0,0,1,0,1,0,0,1},
+    {1,0,1,1,0,0,1,1,0,0,2,0,2,0,0,2},
+    {1,0,0,0,0,0,0,1,0,0,1,0,1,0,0,1},
+    {1,0,0,0,0,0,0,0,0,0,2,0,2,0,0,1},
+    {1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1},
 };
 
 struct Library *UtilityBase;
@@ -1107,6 +1135,7 @@ struct Library *UtilityBase;
 #define DiagShiftAmount 5
 
 UBYTE texture_lookup[32 * 32];
+UBYTE door_lookup[32 * 32];
 
 void init_lookup_tables() {
     int i, ii;
@@ -1145,6 +1174,7 @@ void init_lookup_tables() {
     for (texY = 0; texY < 32; texY++) {
         for (texX = 0; texX < 32; texX++) {
             texture_lookup[(texY << 5) + texX] = texture[(texY << 5) + texX];
+            door_lookup[(texY << 5) + texX] = door[(texY << 5) + texX];
         }
     }
 
@@ -1246,7 +1276,7 @@ void move_backward() {
 
 #define DIST 10
 
-
+UBYTE* curTex;
 void Raycast() {
     int ray;
     UBYTE col;
@@ -1260,7 +1290,7 @@ void Raycast() {
     int scaled_screen_height;
     int temp_distance;
     int shift_amount;
-    int side;
+    int side,sidecol;
     int prev_map_x, prev_map_y;
     int texX, texY;
     int reciprocal_line_height;
@@ -1276,6 +1306,7 @@ void Raycast() {
     int ray_x1, ray_x2, ray_y1, ray_y2;
     int pdir_frac;
     int line_gap;
+    int offcol;
 
     line_gap = 16;  // Initial gap between lines
 
@@ -1339,7 +1370,20 @@ void Raycast() {
 
             if (map_x >= 0 && map_x < MAP_WIDTH && map_y >= 0 && map_y < MAP_HEIGHT) {
                 col = world_map[map_y][map_x];
-                if (col > 0) hit = 1;
+                if (col > 0) 
+                {
+                    hit = 1;
+                    if (col == 1) {
+                        curTex = texture_lookup;
+                        sidecol = side;
+                        offcol = 2;
+                    }
+                    if (col == 2) {
+                        curTex = door_lookup;
+                        sidecol = 0;
+                        offcol = 0;
+                    }
+                }
             }
 
             distance += (1024 >> DIST);
@@ -1375,8 +1419,8 @@ void Raycast() {
 
             y = line_start;
             while (y <= line_end) {
-                cc = texture_lookup[((texY >> 8) & 31) << 5 | texX] - 2;
-                if (side == 1) cc += 6;
+                cc = curTex[((texY >> 7) & 31) << 5 | texX] - offcol;
+                if (sidecol == 1) cc += 6;
                 span_start = y;
                 span_texY = texY;
 
@@ -1384,18 +1428,17 @@ void Raycast() {
                     y++;
                     texY += delta_texY;
                     if (y >= line_end) break;
-                    next_cc = texture_lookup[((texY >> 8) & 31) << 5 | texX] - 2;
-                    if (side == 1) next_cc += 6;
+                    next_cc = curTex[((texY >> 7) & 31) << 5 | texX] - offcol;
+                    if (sidecol == 1) next_cc += 6;
                     if (next_cc != cc) break;
                 }
 
-                span_height = y - span_start + 1;
+                span_height = y - span_start + 2;
                 vline(chunkyBuffer + ymul[span_start] + ray, cc << 8 | cc, span_height);
             }
         }
     }
 
-    render_text("Top Floor?", 0, 80, 0);
 
     if (scenedta < 10) {
         ppx = 6<<10;
@@ -1405,25 +1448,30 @@ void Raycast() {
 
     if (scenedta > 1000 && scenedta < 3000) {
         move_forward();
+        render_text("Dungeons?", 0, 28, 0);
+
     }
 
     if (scenedta > 4000 && scenedta < 6000) {
         pdir-=2;
         if (pdir <= 0) pdir = 266;
+        render_text("   or", 0, 28, 0);
+
+
     }
 
-    if (scenedta > 6500 && scenedta < 9500) {
+    if (scenedta > 6500 && scenedta < 10500) {
         pdir+=2;
         if (pdir > 266) pdir = 1;
+        render_text("Dragons?", 0, 28, 0);
     }
 
-    if (scenedta > 9500 && scenedta < 11500) {
+    if (scenedta > 11000 && scenedta < 13000) {
+        pdir-=2;
+        if (pdir <= 0) pdir = 266;
         move_backward();
     }
-
 }
-
-
 
 void RenderCheckerboard2(UBYTE color1, UBYTE color2) {
     UBYTE x, y;
@@ -1644,6 +1692,8 @@ void OnExit() {
     FreeVec(listrippic);
     FreeVec(gpspic);
     FreeVec(gps2pic);
+    FreeVec(title);
+    FreeVec(door);
     FreeVec(sideflypic);
     FreeVec(chei);
     FreeVec(cpic2);
@@ -1698,8 +1748,6 @@ int main(void) {
     }
 
     LoadRGB32(&(mainScreen1->ViewPort), blackpal);
-
-    init_lookup_tables();
 
     bufferSelector = TRUE;
     currentScreen = mainScreen1;
@@ -1771,12 +1819,30 @@ int main(void) {
         exit(1);
     }
 
-    tinyfont = LoadTarga("tinyfont.tga",10);
+    door = LoadTarga("door.tga",10);
+    if (door == NULL) {
+        Printf("failed to load door.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    witch = LoadTarga("witch.tga",11);
+    if (witch == NULL) {
+        Printf("failed to load witch.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    tinyfont = LoadTarga("tinyfont.tga",14);
     if (tinyfont == NULL) {
         Printf("failed to load tinyfont.tga\n");
         OnExit();
         exit(1);
     }
+
+
+    init_lookup_tables();
+
 
     title = LoadTarga("title.tga",15);
     if (title == NULL) {
@@ -1804,7 +1870,6 @@ int main(void) {
     }
 
     LoadRGB32(&(mainScreen1->ViewPort), blackpal);
-
     mt_install_cia(&custom, (APTR)App_GetVBR(), 1);
     mt_init(&custom, moddata, NULL, 0);
     mt_mastervol(&custom, 0x40);
@@ -1825,6 +1890,9 @@ int main(void) {
     
 }
 
+UBYTE myp = 0;
+UBYTE myx = 0;
+UBYTE lok = 0;
 void HeightMap() 
 {
     int x,y,z;
@@ -1835,6 +1903,9 @@ void HeightMap()
     UBYTE px,py=0;
     UBYTE bil = 0;
     UBYTE cc;
+    UBYTE raja;
+    UBYTE raja2;
+    UBYTE alku = 92-((dta-alkudta)>>5);
     UBYTE* destPtr;
     UBYTE drawcolor2;
 
@@ -1842,14 +1913,28 @@ void HeightMap()
     UBYTE lh = 0;
     UBYTE tx,ty,zs = 0;
 
+    if (lok == 1) alku = 0;
+
+    if (alku <= 0 || alku > 200) { alku = 0; lok = 1; }
+
+    raja = ((dta-alkudta)/1000);
+    if (raja < 1) raja = 1;
+    if (raja > 4) raja = 4;
+
+    raja2 = ((dta-alkudta)/2000);
+    if (raja2 < 1) raja2 = 1;
+    if (raja2 > 4) raja2 = 4;
+
     if (frame == 0) {
         drawcolor = 10;
         fillrect(0,0,160,94);
     }
 
-    py = -dta>>5;
-    px = -py;
-    off2 = sine[(64+(dta>>3))&0xff]>>5;
+    myp-=(dt*raja)>>6;
+    myx+=(dt*raja2)>>6;
+    py = myp;
+    px = myx;
+    off2 = alku+(sine[(64+(dta>>3))&0xff]>>5);
     off3 = sine[(dta>>3)&0xff]>>5;
 
     for(x=0;x<65;x++)
@@ -2006,48 +2091,17 @@ int textindex = 0;
 int t = 0;
 
 void Intro() {
-    int i;
-    if (textindex == 0) {
-        DrawPic(testpic,0,0,160,256);
-    }
-    if (t >= 1000 && textindex == 0) {
-        render_text("Quadtrip", 8, 34, 0);  // Display "Quadtrip" at (0, 50)
-        textindex++;
-    }
+    int i = 0;
 
-    // Render "presents" after 50 frames
-    if (t >= 3500 && textindex == 1) {
-        render_text("presents", 8, 80, 0);  // Display "presents" at (0, 100)
-        textindex++;
-    }
+    if (frame == 0) {
+        memset(chunkyBuffer, 11*16, 160*256);
 
-    // Render "The" after 100 frames
-    if (t >= 5000 && textindex == 2) {
-        render_text("The", 8, 160, 0);  // Display "The" at (0, 150)
-        textindex++;
     }
+    i = ((scenedta-2500)>>5);
+    if (i < 0) i = 0;
+    if (i >= 54) i = 54;
 
-    // Render "Witching" after 150 frames
-    if (t >= 5500 && textindex == 3) {
-        render_text("Witching", 8, 200, 0);  // Display "Witching" at (0, 200)
-        textindex++;
-    }
-
-    // Render "Hour" after 200 frames
-    if (t >= 6000 && textindex == 4) {
-        render_text("Hour", 8, 240, 0);  // Display "Hour" at (0, 250)
-        textindex++;
-    }
-
-    if (t > 7000) {
-        for(i=frame%4; i < 160<<8; i+=4) {
-            if (chunkyBuffer[i] > 0) {
-                chunkyBuffer[i]-=1;
-                chunkyBuffer[i]&=chunkyBuffer[i-1];
-            }
-        }
-    }
-
+    DrawPicV(witch,0,0,160,202+i);
 }
 
 void Gps()
@@ -2175,7 +2229,6 @@ void MainLoop() {
         t = dta;
 
         scenedta = scenedta + dt;
-
         scene = mt_E8Trigger;
 
         if (scene == 8) {
@@ -2185,11 +2238,11 @@ void MainLoop() {
         if (oldscene != scene) {
             frame = 0;
             scenedta = 0;
+            alkudta = dta;
             nowscene++;
         }
 
         oldscene = scene;
-
         DrawFuncs[nowscene]();
 
 
