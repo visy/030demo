@@ -39,7 +39,6 @@ UWORD alkudta = 0;
 UBYTE* cpic2;
 UBYTE* chei;
 UBYTE* flypic;
-UBYTE* testpic;
 UBYTE* shockpic;
 UBYTE* sideflypic;
 UBYTE* listrippic;
@@ -48,6 +47,9 @@ UBYTE* gps2pic;
 UBYTE* tinyfont;
 UBYTE* title;
 UBYTE* door;
+UBYTE* wall2;
+UBYTE* lava;
+UBYTE* sidefly2pic;
 UBYTE* witch;
 
 ULONG blackpal[] = {
@@ -1072,6 +1074,26 @@ void render_tinytext(const char *text, int xpos, int ypos, UBYTE col) {
     }
 }
 
+void render_tinytext_d(const char *text, int xpos, int ypos, UBYTE col,int tt) {
+    int baseline_y = ypos;
+    unsigned char ch;
+    int char_index;
+    int lala = 0;
+    while (*text) {
+        ypos = baseline_y;
+        if (*text == ' ') {
+            xpos += 6;
+        } else {
+            render_tinychar(*text, xpos, ypos, col);
+            char_index = *text - 32;  // Original logic for other characters
+            xpos += 6;
+        }
+        text++;
+        if (lala > tt>>7) break;
+        lala++;
+    }
+}
+
 int ppx = 6<<10;
 int ppy = 7<<10;
 int pdir = 1; // up, down, left, right
@@ -1138,6 +1160,18 @@ struct Library *UtilityBase;
 
 UBYTE texture_lookup[32 * 32];
 UBYTE door_lookup[32 * 32];
+UBYTE wall2_lookup[32 * 32];
+
+inline UBYTE GetColumnMajorPixelAt(UBYTE* texture, int x, int y) {
+    int index;
+    // Wrap the coordinates to stay within texture bounds (for tiling)
+    x &= 31;
+    y &= 31;
+
+    // Calculate the index in column-major order
+    index = (x << 5) + y;
+    return texture[index];
+}
 
 void init_lookup_tables() {
     int i, ii;
@@ -1177,6 +1211,7 @@ void init_lookup_tables() {
         for (texX = 0; texX < 32; texX++) {
             texture_lookup[(texY << 5) + texX] = texture[(texY << 5) + texX];
             door_lookup[(texY << 5) + texX] = door[(texY << 5) + texX];
+            wall2_lookup[(texY << 5) + texX] = wall2[(texY << 5) + texX];
         }
     }
 
@@ -1311,7 +1346,7 @@ void Raycast() {
     int span_texY;
     int span_height;
     UBYTE next_cc;
-    int horizon_line;
+    int horizon_line = SCREEN_HEIGHT >> 1;
     int cell_offset_x, cell_offset_y;
     int pdir_index1, pdir_index2;
     int last_pdir, target_pdir;
@@ -1319,12 +1354,41 @@ void Raycast() {
     int pdir_frac;
     int line_gap;
     int offcol;
+    int x;
 
-    if (scenedta < 10) {
+    int zpp;
+    int radius;
+
+    int hit_x;
+    int hit_y;
+
+    int x_ind_hit;
+    int y_ind_hit;
+    int x_rem_hit;
+    int y_rem_hit;
+
+    int texture_x;
+    int texture_y;
+    UBYTE color;
+    UBYTE rc = 4;
+    UBYTE fc = 8;
+
+    if (scenedta < 10 && nowscene < 8) {
         ppx = 6<<10;
         ppy = 7<<10;
         pdir = 1;
         last_pdir = 1;
+    }
+    else if (scenedta < 10 && nowscene >= 8) {
+        ppx = 5<<10;
+        ppy = 6<<10;
+        pdir = 4;
+        last_pdir = 4;
+    }
+
+    if (nowscene > 8) {
+        rc = 12;
+        fc = 11;
     }
 
     if (scenedta > 1000 && scenedta < 3000) {
@@ -1380,22 +1444,54 @@ void Raycast() {
 
     if (frame == 0) {
         memset(chunkyBuffer, 0, SCREEN_HEIGHT * SCREEN_WIDTH);
-    }
+     }
     {
-        horizon_line = SCREEN_HEIGHT >> 1;
-        memset(chunkyBuffer, 4, ymul[horizon_line]);
-        memset(chunkyBuffer + ymul[horizon_line], 8, ymul[SCREEN_HEIGHT - horizon_line]);
+        memset(chunkyBuffer, rc, ymul[horizon_line]);
+        if (nowscene > 8) {
+        memset(chunkyBuffer + ymul[horizon_line], fc, ymul[SCREEN_HEIGHT - horizon_line]);
 
         for (y = horizon_line; y < SCREEN_HEIGHT; y += line_gap) {
             memset(chunkyBuffer + ymul[y], 0, SCREEN_WIDTH);
             if (line_gap > 1) line_gap--;
         }
+        }
     }
+
+    #define TEXTURE_SIZE 32
+    #define WALL_HEIGHT 32
+
 
     pdir_index1 = (pdir - 1) >> 1;
     pdir_frac = (pdir - 1) & 1;
     pdir_index2 = pdir_index1 + 1;
     if (pdir_index2 >= 133) pdir_index2 = 0;
+            ray_x1 = lookup_tables[pdir_index1][0][0];
+            ray_y1 = lookup_tables[pdir_index1][0][1];
+            ray_x2 = lookup_tables[pdir_index2][0][0];
+            ray_y2 = lookup_tables[pdir_index2][0][1];
+
+            if (pdir_frac == 0) {
+                ray_x = ray_x1;
+                ray_y = ray_y1;
+            } else {
+                ray_x = (ray_x1 + ray_x2) >> 1;
+                ray_y = (ray_y1 + ray_y2) >> 1;
+            }
+    if (nowscene < 8) {
+
+        // Render floor and ceiling
+        for (y = 0; y < 128; y++) {
+            for (x = 0; x < SCREEN_WIDTH; x++) {
+
+
+                texture_x = (x + ray_x) & 31;
+                texture_y = (y + ray_y) & 31;
+                chunkyBuffer[ymul[128+y] + (x)] = lava[(texture_x<<5)+texture_y];
+            }
+        }
+    }
+
+    // render walls
 
     for (ray = 0; ray < SCREEN_WIDTH; ray += 2) {
         ray_x1 = lookup_tables[pdir_index1][ray][0];
@@ -1448,6 +1544,12 @@ void Raycast() {
                     }
                     if (col == 2) {
                         curTex = door_lookup;
+                        sidecol = 0;
+                        offcol = 0;
+                    }
+
+                    if (nowscene > 8) {
+                        curTex = wall2_lookup;
                         sidecol = 0;
                         offcol = 0;
                     }
@@ -1507,7 +1609,7 @@ void Raycast() {
         }
     }
 
-    if (scenedta > 1500 && scenedta < 6500 && nowscene > 7) {
+    if (scenedta > 2500 && scenedta < 8500 && nowscene > 7) {
         render_tinytext("code+music visy - gfx kide" , 2, 20, 161);
         render_tinytext("code+music visy - gfx kide" , 3, 21, 31);
     }
@@ -1516,8 +1618,11 @@ void Raycast() {
     if (scenedta > 1000 && scenedta < 3000) {
         render_text("ACTIVATE", 7, 128, 0);
     }
-    if (scenedta > 4000 && scenedta <= 8500) {
+    if (scenedta > 4000 && scenedta <= 8500 && nowscene < 8) {
         render_text("Delivery", 16, 128, 0);
+    }
+    if (scenedta > 4000 && scenedta <= 8500 && nowscene >= 8) {
+        render_text("offline", 24, 128, 0);
     }
     if (scenedta > 6500 && scenedta < 8500) {
         render_text("   Mode", 16, 128+32, 0);
@@ -1744,15 +1849,17 @@ void OnExit() {
     mt_remove_cia(&custom);
 
     FreeVec(flypic);
-    FreeVec(testpic);
     FreeVec(tinyfont);
     FreeVec(shockpic);
+    FreeVec(lava);
     FreeVec(listrippic);
     FreeVec(gpspic);
     FreeVec(gps2pic);
     FreeVec(title);
     FreeVec(door);
+    FreeVec(wall2);
     FreeVec(sideflypic);
+    FreeVec(sidefly2pic);
     FreeVec(chei);
     FreeVec(cpic2);
     FreeVec(moddata);
@@ -1775,11 +1882,13 @@ void OnExit() {
 
 int main(void) {
     UWORD oldDMA;
+    UBYTE o;
     int i,ii,j = 0;
     BPTR file_ptr;
     ULONG size;
 
     printf(quadansi);
+    printf("\e[0m\n");
 
     for(i=0;i<128;i++) {
         WaitTOF();
@@ -1834,9 +1943,9 @@ int main(void) {
         }
     }
 
-    testpic = LoadTarga("testpic.tga", 3);
-    if (testpic == NULL) {
-        Printf("failed to load testpic.tga\n");
+    sidefly2pic = LoadTarga("sidefly2.tga", 2);
+    if (sidefly2pic == NULL) {
+        Printf("failed to load sidefly2.tga\n");
         OnExit();
         exit(1);
     }
@@ -1869,12 +1978,6 @@ int main(void) {
         exit(1);
     }
 
-    gpspic = LoadTarga("gps.tga",8);
-    if (gpspic == NULL) {
-        Printf("failed to load gps.tga\n");
-        OnExit();
-        exit(1);
-    }
 
     gps2pic = LoadTarga("gps2.tga",9);
     if (gps2pic == NULL) {
@@ -1897,6 +2000,21 @@ int main(void) {
         exit(1);
     }
 
+    wall2 = LoadTarga("wall2.tga",12);
+    if (wall2 == NULL) {
+        Printf("failed to load door.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+    gpspic = LoadTarga("gps.tga",13);
+    if (gpspic == NULL) {
+        Printf("failed to load gps.tga\n");
+        OnExit();
+        exit(1);
+    }
+
+
     tinyfont = LoadTarga("tinyfont.tga",14);
     if (tinyfont == NULL) {
         Printf("failed to load tinyfont.tga\n");
@@ -1913,33 +2031,45 @@ int main(void) {
         OnExit();
         exit(1);
     }
-
-    LoadRGB32(&(mainScreen1->ViewPort), custompal);
+    
     ScreenToFront(currentScreen);
-    WaitTOF();
-    DrawPic(title,0,0,160,256);
-    c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
-    for(i=0;i<128;i++) {
-        WaitTOF();
-    }
 
-    for(ii=0;ii<256;ii++) {
-        for(j=239;j<=255;j++) {
-            if (custompal[1+(j*3)+0] > 0) custompal[1+(j*3)+0]-=0x01000000;
-            if (custompal[1+(j*3)+1] > 0) custompal[1+(j*3)+1]-=0x01000000;
-            if (custompal[1+(j*3)+2] > 0) custompal[1+(j*3)+2]-=0x01000000;
-        }
+    if (nowscene == 0) {
         LoadRGB32(&(mainScreen1->ViewPort), custompal);
-
-        for(i=0;i<160;i+=8) {
-            chunkyBuffer[ymul[ii]+i]|=chunkyBuffer[ymul[ii]+i+1];
-            chunkyBuffer[ymul[ii]+i+3]|=chunkyBuffer[ymul[ii]+i+2];
-        }
-        c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
         WaitTOF();
+        DrawPic(title,0,0,160,256);
+        c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
+        for(i=0;i<128;i++) {
+            WaitTOF();
+        }
+
+        for(ii=0;ii<256;ii++) {
+            for(j=239;j<=255;j++) {
+                if (custompal[1+(j*3)+0] > 0) custompal[1+(j*3)+0]-=0x01000000;
+                if (custompal[1+(j*3)+1] > 0) custompal[1+(j*3)+1]-=0x01000000;
+                if (custompal[1+(j*3)+2] > 0) custompal[1+(j*3)+2]-=0x01000000;
+            }
+            LoadRGB32(&(mainScreen1->ViewPort), custompal);
+
+            o = sine[(ii<<3)&1023]>>3;
+            for(i=0;i<160;i+=8) {
+                chunkyBuffer[ymul[ii]+i+o]|=chunkyBuffer[ymul[ii]+i+1+o];
+                chunkyBuffer[ymul[ii]+i+3+o]|=chunkyBuffer[ymul[ii]+i+2+o];
+            }
+            c2p2x1_8_c5_030(chunkyBuffer, currentBitmap->Planes[0]);
+            WaitTOF();
+        }
     }
 
     LoadRGB32(&(mainScreen1->ViewPort), blackpal);
+
+    lava = LoadTarga("lava.tga", 15);
+    if (lava == NULL) {
+        Printf("failed to load lava.tga\n");
+        OnExit();
+        exit(1);
+    }
+
     mt_install_cia(&custom, (APTR)App_GetVBR(), 1);
     mt_init(&custom, moddata, NULL, 0);
     mt_mastervol(&custom, 0x40);
@@ -2105,7 +2235,21 @@ void Lines()
             render_text("Circle", centerX-50, 230, 1);
         }
 
-        if (scenedta > 9000) {
+        if (scenedta > 9000 && scenedta <= 10000) {
+            render_tinytext("Same Day" , 0, 120, 29);
+        }
+
+        if (scenedta > 10000 && scenedta <= 11000) {
+            render_tinytext("Same Day Guaranteed" , 0, 120, 30);
+        }
+
+        if (scenedta > 11000 && scenedta <= 12000) {
+            render_tinytext("Same Day Guaranteed" , 0, 120, 29);
+            render_tinytext(" Dungeon" , 0, 130, 30);
+
+        }
+
+        if (scenedta > 12000) {
             render_tinytext("Same Day Guaranteed" , 0, 120, 31);
             render_tinytext(" Dungeon Delivery" , 0, 130, 31);
 
@@ -2134,38 +2278,51 @@ void Sidefly() {
         memset(chunkyBuffer, 0, 160*256);
     }
 
-    RenderCheckerboard(0x03, 0x08);
-
-
-    DrawPic(sideflypic, -64+(scenedta>>5),128-40+(sine[(scenedta>>4)&255]>>4),64,64);
-
-    render_tinytext("Standard takeoff procedure" , 2, 238, 0);
-    render_tinytext("Standard takeoff procedure" , 3, 239, 31);
-
+    if (nowscene <= 6) {
+        RenderCheckerboard(0x03, 0x08);
+        DrawPic(sideflypic, -64+(scenedta>>5),128-40+(sine[(scenedta>>4)&255]>>4),64,64);
+        render_tinytext("Standard takeoff procedure" , 2, 238, 0);
+        render_tinytext("Standard takeoff procedure" , 3, 239, 31);
+    } else {
+        RenderCheckerboard(0x16, 0x32);
+        DrawPic(sidefly2pic, (160)-(scenedta>>5),128-40+(sine[(scenedta>>4)&255]>>4),64,64);
+        render_tinytext("Landing gears are engaged" , 5, 238, 0);
+        render_tinytext("Landing gears are engaged" , 6, 239, 31);
+    }
 }
-
 void Shock() {
     int x,y;
     int picop;
+    int raj = 0;
     if (frame == 0) {
         DrawPic(shockpic,0,0,160,256);
 
     }
-    RenderCheckerboard2(32+((frame>>1)&7), 33+((frame>>1)&7));
 
-    for (y=0;y<36;y++) {
-        for (x=0;x<160;x++) {
-            picop = y*45+((x+(frame<<1))%45);
-
-            if (shockpic[ymul[(y<<1)+96]+x] == 64) { 
-                chunkyBuffer[ymul[(y<<1)+96]+x] = listrippic[picop];
-                chunkyBuffer[ymul[(y<<1)+97]+x] = listrippic[picop];
-            }
-        }
+    if (scenedta > 5500) {
+        RenderCheckerboard2(32+((frame>>1)&7), 33+((frame>>1)&7));
     }
 
-    render_tinytext("review */***** not arrived" , 2, 20, 0);
-    render_tinytext("review */***** not arrived" , 3, 21, 31);
+    if (scenedta > 4500) {
+        raj = (scenedta-4500)>>7;
+        if (raj > 36) raj = 36;
+        for (y=0;y<raj;y++) {
+            for (x=0;x<160;x++) {
+                picop = y*45+((x+(frame<<1))%45);
+
+                if (shockpic[ymul[(y<<1)+96]+x] == 64) { 
+                    chunkyBuffer[ymul[(y<<1)+96]+x] = listrippic[picop];
+                    chunkyBuffer[ymul[(y<<1)+97]+x] = listrippic[picop];
+                }
+            }
+        }
+
+    }
+
+    if (scenedta >= 5000) {
+        render_tinytext_d("review */***** not arrived" , 2, 20, 0,scenedta-5000);
+        render_tinytext_d("review */***** not arrived" , 3, 21, 31,scenedta-5000);
+    }
 
 }
 
@@ -2196,8 +2353,25 @@ void Intro() {
 
 void Gps()
 {
+    int x,y,picop,i,kk,aa;
     if (frame == 0) {
         DrawPic(gpspic, 0,0,160,256);
+    }
+
+    for (i=0;i < 3; i++) {
+        kk = i*37;
+        for (y=frame%2;y<36;y+=1) {
+            aa = y*45;
+            for (x=0;x<160;x+=1) {
+                picop = (aa)+((x+((i<<2)+frame<<2))%45);
+
+                if (gpspic[ymul[((y+(kk))<<1)]+x] == 208) { 
+                    chunkyBuffer[ymul[((y+(kk))<<1)]+x] = listrippic[picop]<<i;
+                    chunkyBuffer[ymul[((y+(kk))<<1)+1]+x] = listrippic[picop]<<i;
+                }
+            }
+
+        }
     }
 }
 
